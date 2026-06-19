@@ -27,12 +27,12 @@ export interface FirebaseConfig {
 }
 
 export const firebaseConfig: FirebaseConfig = {
-  apiKey: pick(env.VITE_FIREBASE_API_KEY, "YOUR_API_KEY"),
-  authDomain: pick(env.VITE_FIREBASE_AUTH_DOMAIN, "YOUR_PROJECT.firebaseapp.com"),
-  projectId: pick(env.VITE_FIREBASE_PROJECT_ID, "YOUR_PROJECT_ID"),
-  storageBucket: pick(env.VITE_FIREBASE_STORAGE_BUCKET, "YOUR_PROJECT.appspot.com"),
-  messagingSenderId: pick(env.VITE_FIREBASE_MESSAGING_SENDER_ID, "YOUR_SENDER_ID"),
-  appId: pick(env.VITE_FIREBASE_APP_ID, "YOUR_APP_ID"),
+  apiKey: pick(env.VITE_FIREBASE_API_KEY, "AIzaSyCn0HOvlwOn66nDPw_1E8eO9eNDPa29UYo"),
+  authDomain: pick(env.VITE_FIREBASE_AUTH_DOMAIN, "cashsplit-81b97.firebaseapp.com"),
+  projectId: pick(env.VITE_FIREBASE_PROJECT_ID, "cashsplit-81b97"),
+  storageBucket: pick(env.VITE_FIREBASE_STORAGE_BUCKET, "cashsplit-81b97.firebasestorage.app"),
+  messagingSenderId: pick(env.VITE_FIREBASE_MESSAGING_SENDER_ID, "885754297904"),
+  appId: pick(env.VITE_FIREBASE_APP_ID, "1:885754297904:web:3281da45efd93d999a77f5"),
 };
 
 /** True until the user has filled in real Firebase config values. */
