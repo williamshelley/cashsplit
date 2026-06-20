@@ -57,6 +57,10 @@ function rowButton(row: HTMLElement, text: string): HTMLButtonElement | undefine
   return Array.from(row.querySelectorAll("button")).find((b) => b.textContent === text);
 }
 
+function rowBadge(row: HTMLElement): HTMLElement | null {
+  return row.querySelector(".badge");
+}
+
 function modalButton(text: string): HTMLButtonElement | undefined {
   return Array.from(document.body.querySelectorAll(".modal-overlay button")).find(
     (b) => b.textContent === text,
@@ -100,10 +104,20 @@ describe("People tab: connect to a person", () => {
     renderGroup(container, multiGroup(), actions({ currentUid: "uA" }), "people");
 
     const alice = personRow(container, "Alice");
-    expect(alice.textContent).toContain("(you)");
+    expect(rowBadge(alice)?.textContent).toBe("You");
     expect(rowButton(alice, "This is me")).toBeUndefined();
     expect(rowButton(personRow(container, "Bob"), "This is me")).toBeTruthy();
     expect(rowButton(personRow(container, "Carol"), "This is me")).toBeTruthy();
+  });
+
+  it("shows a link-status badge on every person and a linked summary", () => {
+    const container = document.createElement("div");
+    renderGroup(container, multiGroup(), actions({ currentUid: "uA" }), "people");
+
+    expect(rowBadge(personRow(container, "Alice"))?.textContent).toBe("You");
+    expect(rowBadge(personRow(container, "Bob"))?.textContent).toBe("Not linked");
+    expect(rowBadge(personRow(container, "Carol"))?.textContent).toBe("Linked");
+    expect(container.textContent).toContain("2 of 3 linked");
   });
 
   it("opens a confirm modal and links the chosen person on confirm", () => {
