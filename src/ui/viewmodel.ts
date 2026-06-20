@@ -6,6 +6,52 @@ export function formatMoney(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }
 
+/** Avatar color for the current user; the warm palette is for everyone else. */
+export const YOU_COLOR = "#5b8def";
+export const AVATAR_COLORS = ["#e0607e", "#3fb38b", "#e8a13c", "#9a6bd6", "#d68a3f", "#4aa3c2"];
+
+/** 1–2 uppercase initials for an avatar; "?" for a blank name. */
+export function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  if (words.length === 1) return words[0].charAt(0).toUpperCase();
+  return (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+}
+
+/** Deterministic avatar color: the "you" color for the current user, else by id. */
+export function personColor(person: Person, currentUid: string | null): string {
+  if (currentUid != null && person.uid === currentUid) return YOU_COLOR;
+  let h = 0;
+  for (let i = 0; i < person.id.length; i++) h = (h * 31 + person.id.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+// Keyword → emoji for an expense's icon tile, first match wins; receipt is the default.
+const EXPENSE_EMOJI: Array<[RegExp, string]> = [
+  [/grocer|market|snack/, "🛒"],
+  [/dinner|lunch|restaurant|meal|pizza|sushi|luigi|brunch|coffee|drink|\bbar\b|beer|wine|food/, "🍝"],
+  [/gas|fuel|petrol/, "⛽"],
+  [/rent|cabin|house|airbnb|hotel|lodg|\bstay\b/, "🏠"],
+  [/ski|lift|snow|board/, "🎿"],
+  [/wifi|internet|phone|data|cell/, "📶"],
+  [/clean|laundry|soap/, "🧽"],
+  [/part(y|ies)|celebrat|gift/, "🎉"],
+];
+
+/** A best-effort emoji icon for an expense, derived from its description. */
+export function emojiForExpense(description: string): string {
+  const d = description.toLowerCase();
+  for (const [re, emoji] of EXPENSE_EMOJI) if (re.test(d)) return emoji;
+  return "🧾";
+}
+
+/** The current user's net balance in a group, or null if they aren't linked. */
+export function currentUserNet(group: Group, currentUid: string): number | null {
+  const me = group.people.find((p) => p.uid === currentUid);
+  if (!me) return null;
+  return computeBalances(group).find((b) => b.personId === me.id)?.amount ?? 0;
+}
+
 export type AuthScreen = "auth" | "verify" | "app";
 
 /** Which top-level screen to show for the given auth state. */

@@ -65,12 +65,14 @@ export function renderAuth(container: HTMLElement, actions: AuthActions): void {
 
     mount(
       container,
-      el("div", { class: "topbar" }, [el("div", { class: "brand" }, [el("span", {}, "Cash"), "Split"])]),
-      el("div", { class: "card" }, [
+      el("div", { class: "auth" }, [
+        el("div", { class: "brand-lockup" }, [
+          el("div", { class: "logo" }, "$"),
+          el("div", { class: "brand" }, [el("span", {}, "Cash"), "Split"]),
+        ]),
         el("h2", {}, mode === "signup" ? "Create your account" : mode === "forgot" ? "Reset password" : "Welcome back"),
-        el("p", { class: "hint" }, "Track shared expenses and settle up with Venmo."),
-        form,
-        switcher,
+        el("p", { class: "muted auth-sub" }, "Split trips, rent and dinners with friends. See who owes whom, settle in one tap."),
+        el("div", { class: "card" }, [form, switcher]),
       ]),
     );
   };

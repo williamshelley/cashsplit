@@ -8,11 +8,12 @@ export interface ExpenseFormHandlers {
   onCancel: () => void;
 }
 
-const METHOD_LABELS: Record<SplitMethod, string> = {
-  equal: "Split equally",
-  exact: "Exact amounts",
-  percent: "Percentages",
-  shares: "Shares / weights",
+const METHODS: SplitMethod[] = ["equal", "exact", "percent", "shares"];
+const SEG_LABELS: Record<SplitMethod, string> = {
+  equal: "Equal",
+  exact: "Exact",
+  percent: "Percent",
+  shares: "Shares",
 };
 
 /**
@@ -119,22 +120,35 @@ export function renderExpenseForm(
     ),
   );
 
-  const methodSelect = el(
-    "select",
-    {
-      onChange: (e: Event) => {
-        state.method = (e.target as HTMLSelectElement).value as SplitMethod;
-        // Entered values mean different things per method (dollars vs percent vs
-        // shares); clear them so a switch can't silently reinterpret them.
-        state.values = {};
-        renderValueInputs();
-        refreshPreview();
-      },
-    },
-    (Object.keys(METHOD_LABELS) as SplitMethod[]).map((m) =>
-      el("option", { value: m, selected: m === state.method }, METHOD_LABELS[m]),
-    ),
-  );
+  // Segmented control for the split method (Equal / Exact / Percent / Shares).
+  const methodControl = el("div", { class: "segmented" });
+  const methodButtons = new Map<SplitMethod, HTMLButtonElement>();
+  const renderMethodControl = () => {
+    methodButtons.clear();
+    const btns = METHODS.map((m) => {
+      const btn = el(
+        "button",
+        {
+          type: "button",
+          class: `seg${m === state.method ? " active" : ""}`,
+          onClick: () => {
+            if (state.method === m) return;
+            state.method = m;
+            // Entered values mean different things per method (dollars vs percent
+            // vs shares); clear them so a switch can't silently reinterpret them.
+            state.values = {};
+            for (const [mm, b] of methodButtons) b.classList.toggle("active", mm === m);
+            renderValueInputs();
+            refreshPreview();
+          },
+        },
+        SEG_LABELS[m],
+      ) as HTMLButtonElement;
+      methodButtons.set(m, btn);
+      return btn;
+    });
+    mount(methodControl, ...btns);
+  };
 
   const paidBySelect = el(
     "select",
@@ -191,19 +205,37 @@ export function renderExpenseForm(
     el("label", {}, "Split between"),
     participantChecks,
     el("label", {}, "How to split"),
-    methodSelect,
+    methodControl,
     valueInputs,
     previewBox,
-    el("div", { class: "row" }, [
-      saveBtn,
+    el("div", { class: "row sheet-actions" }, [
       el("button", { class: "btn", type: "button", onClick: () => handlers.onCancel() }, "Cancel"),
+      saveBtn,
     ]),
   ]);
 
-  mount(
-    container,
-    el("div", { class: "card" }, [el("h3", {}, isEdit ? "Edit expense" : "Add expense"), form]),
+  // Present as a bottom-sheet (mobile) / centered dialog (desktop). Clicking the
+  // dimmed backdrop cancels; clicks inside the sheet do not.
+  const overlay = el("div", {
+    class: "modal-overlay sheet-overlay",
+    onClick: (e: Event) => { if (e.target === overlay) handlers.onCancel(); },
+  });
+  overlay.append(
+    el("div", { class: "card modal expense-sheet" }, [
+      el("div", { class: "sheet-head" }, [
+        el("h3", {}, isEdit ? "Edit expense" : "Add expense"),
+        el(
+          "button",
+          { class: "btn icon-btn", type: "button", "aria-label": "Close", onClick: () => handlers.onCancel() },
+          "✕",
+        ),
+      ]),
+      form,
+    ]),
   );
+
+  mount(container, overlay);
+  renderMethodControl();
   renderValueInputs();
   refreshPreview();
 }

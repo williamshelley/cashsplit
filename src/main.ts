@@ -157,6 +157,7 @@ async function bootstrap() {
     routeUnsub = dbApi.subscribeMyGroups(db, uid, (groups: GroupDoc[]) => {
       renderHome(appEl, groups, {
         userEmail: currentUser?.email ?? "",
+        currentUid: uid,
         onOpen: (id) => navigate(`#/g/${id}`),
         onCreate: async (name) => {
           const id = await dbApi.createGroup(db, {
