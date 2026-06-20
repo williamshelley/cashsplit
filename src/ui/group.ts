@@ -37,6 +37,8 @@ export interface GroupActions {
   deleteGroup: () => Promise<void>;
   onBack: () => void;
   onCopyLink: () => Promise<void> | void;
+  /** Download the group's expenses as a CSV file. */
+  onExport: () => void;
   /**
    * Notify the parent that the active tab changed, so it can preserve the tab
    * across live re-renders. If omitted, tab switching is handled internally.
@@ -204,6 +206,7 @@ function renderExpensesTab(body: HTMLElement, group: GroupDoc, actions: GroupAct
     body,
     el("div", { class: "row expense-add-bar" }, [
       el("button", { class: "btn primary", onClick: () => { if (!formOpen) openForm(); } }, "+ Add expense"),
+      el("button", { class: "btn", onClick: () => actions.onExport() }, "Export CSV"),
     ]),
     formHost,
     list,

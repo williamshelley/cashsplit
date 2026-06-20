@@ -62,6 +62,7 @@ function actions(over: Partial<GroupActions> = {}): GroupActions {
     deleteGroup: vi.fn(),
     onBack: vi.fn(),
     onCopyLink: vi.fn(),
+    onExport: vi.fn(),
     ...over,
   };
 }
@@ -178,6 +179,24 @@ describe("Expenses tab: layout", () => {
       (b) => b.textContent === "+ Add expense",
     )!;
     expect(addBtn.closest(".expense-add-bar")).not.toBeNull();
+  });
+});
+
+describe("Expenses tab: export", () => {
+  it("shows an Export CSV button in the add bar that triggers onExport", () => {
+    const onExport = vi.fn();
+    const container = document.createElement("div");
+    const g = { ...group(), expenses: [expense({ id: "e1", description: "Tacos" })] };
+    renderGroup(container, g, actions({ onExport }), "expenses");
+
+    const exportBtn = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent === "Export CSV",
+    ) as HTMLButtonElement | undefined;
+    expect(exportBtn).toBeTruthy();
+    expect(exportBtn!.closest(".expense-add-bar")).not.toBeNull();
+
+    exportBtn!.click();
+    expect(onExport).toHaveBeenCalledTimes(1);
   });
 });
 
