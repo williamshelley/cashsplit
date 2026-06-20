@@ -77,6 +77,7 @@ describe("full-fidelity components are styled", () => {
   const components = [
     "logo", "avatar", "avatar-stack", "icon-tile",
     "group-card", "net", "dashed", "segmented", "seg", "expense-sheet",
+    "expense-add-bar", "settle-check", "payment-row",
   ];
   it.each(components)("styles .%s", (cls) => {
     expect(hasSelector(cls)).toBe(true);

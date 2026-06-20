@@ -2,6 +2,7 @@ import {
   addDoc,
   arrayUnion,
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   query,
@@ -63,6 +64,15 @@ export async function joinGroup(db: Firestore, id: string, uid: string): Promise
 
 export async function renameGroup(db: Firestore, id: string, name: string): Promise<void> {
   await updateDoc(doc(db, GROUPS, id), { name, ...touch() });
+}
+
+/**
+ * Delete a group document. People/expenses/settlements live as arrays on the
+ * doc, so they're removed atomically — no subcollection cleanup. Firestore rules
+ * restrict this to the group's owner.
+ */
+export async function deleteGroup(db: Firestore, id: string): Promise<void> {
+  await deleteDoc(doc(db, GROUPS, id));
 }
 
 export async function addPerson(db: Firestore, id: string, person: Person): Promise<void> {

@@ -143,7 +143,7 @@ describe("CashSplit end-to-end (emulator)", () => {
 
     // 7. Render the Settle-up UI from the edited group and confirm balances moved.
     const container = document.createElement("div");
-    renderSettle(container, group, owner.uid, { onMarkPaid: async () => {} });
+    renderSettle(container, group, owner.uid, { onMarkPaid: async () => {}, onUnmarkPaid: async () => {} });
 
     // 7. The Pay-with-Venmo link is pre-filled with the recomputed $25 owed
     //    (owner is the debtor after the edit bumped the cab to $50).
@@ -153,11 +153,8 @@ describe("CashSplit end-to-end (emulator)", () => {
 
     // 8. Only the person who is owed can mark a debt paid. The owner owes
     //    name-only Bob, who has no account to confirm it, so the owner (the
-    //    debtor) sees no "Mark paid" button — the debt stays open.
-    const markPaidBtn = Array.from(container.querySelectorAll("button")).find((b) =>
-      /mark paid/i.test(b.textContent ?? ""),
-    );
-    expect(markPaidBtn).toBeUndefined();
+    //    debtor) sees no Mark-paid checkbox — the debt stays open.
+    expect(container.querySelector(".settle-row input[type=checkbox]")).toBeNull();
 
     // 9. A second user signs up, verifies, and joins via the invite path.
     await authApi.logOut(auth);

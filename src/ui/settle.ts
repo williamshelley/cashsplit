@@ -1,10 +1,39 @@
 import { el, mount } from "./dom";
-import { balanceSummary, formatMoney, settleRows, type SettleRow } from "./viewmodel";
+import {
+  balanceSummary,
+  formatMoney,
+  settleRows,
+  settlementRows,
+  type SettleRow,
+  type SettlementRow,
+} from "./viewmodel";
 import { avatar } from "./avatar";
 import type { Group } from "../types";
 
 export interface SettleHandlers {
+  /** Record a payment for an open debt (the creditor ticked "Mark paid"). */
   onMarkPaid: (row: SettleRow) => void;
+  /** Undo a recorded payment (the creditor unticked it), reopening the debt. */
+  onUnmarkPaid: (row: SettlementRow) => void;
+}
+
+/**
+ * A checkbox with an in-flight guard: while its toggle handler is awaiting the
+ * write, the box is disabled so a second toggle can't fire a duplicate.
+ */
+function toggleBox(checked: boolean, onToggle: () => void | Promise<void>): HTMLInputElement {
+  const box = el("input", { type: "checkbox" });
+  if (checked) box.checked = true;
+  box.addEventListener("change", async () => {
+    if (box.hasAttribute("disabled")) return; // ignore re-entrant toggles while a write is in flight
+    box.setAttribute("disabled", "true");
+    try {
+      await onToggle();
+    } catch {
+      box.removeAttribute("disabled");
+    }
+  });
+  return box;
 }
 
 /**
@@ -84,34 +113,20 @@ export function renderSettle(
             }
           }
           // Only the person who is owed (the creditor) can confirm a debt was
-          // paid, so "Mark paid" appears only on rows where the current user is
-          // the creditor. A name-only creditor (uid: null) never matches, so a
-          // debt owed to someone without an app account can't be marked paid
-          // until they join and link their identity.
+          // paid, so the Mark-paid checkbox appears only on rows where the
+          // current user is the creditor. A name-only creditor (uid: null) never
+          // matches, so a debt owed to someone without an app account can't be
+          // marked paid until they join and link their identity.
           if (row.toId === currentPersonId) {
             actions.push(
-              el("button", {
-                class: "btn",
-                onClick: async (ev: Event) => {
-                  const btn = ev.currentTarget as HTMLButtonElement;
-                  if (btn.hasAttribute("disabled")) return; // ignore double-clicks while in flight
-                  btn.setAttribute("disabled", "true");
-                  try {
-                    await handlers.onMarkPaid(row);
-                  } catch {
-                    btn.removeAttribute("disabled");
-                  }
-                },
-              }, "Mark paid"),
+              el("label", { class: "settle-check" }, [
+                toggleBox(false, () => handlers.onMarkPaid(row)),
+                el("span", {}, "Mark paid"),
+              ]),
             );
           }
-          const fromP = group.people.find((p) => p.id === row.fromId);
-          const toP = group.people.find((p) => p.id === row.toId);
           return el("div", { class: "settle-row" }, [
             el("span", { class: "settle-desc" }, [
-              fromP ? avatar(fromP, currentUid, { small: true }) : null,
-              el("span", { class: "settle-arrow" }, "→"),
-              toP ? avatar(toP, currentUid, { small: true }) : null,
               el("span", { class: "settle-names" }, `${row.fromName} → ${row.toName}`),
             ]),
             el("span", { class: "settle-amt" }, formatMoney(row.amount)),
@@ -122,5 +137,35 @@ export function renderSettle(
     );
   }
 
-  mount(container, summary, list);
+  // Recorded payments, shown as ticked checkboxes. The creditor can untick to
+  // undo a payment (reopening the debt); everyone else sees it read-only.
+  const paid = settlementRows(group);
+  let payments: HTMLElement | null = null;
+  if (paid.length > 0) {
+    payments = el(
+      "div",
+      { class: "card" },
+      [
+        el("h3", {}, "Payments") as Node,
+        ...paid.map((srow) => {
+          const control =
+            srow.toId === currentPersonId
+              ? el("label", { class: "settle-check" }, [
+                  toggleBox(true, () => handlers.onUnmarkPaid(srow)),
+                  el("span", {}, "Paid"),
+                ])
+              : el("span", { class: "hint" }, "✓ Paid");
+          return el("div", { class: "payment-row settle-row" }, [
+            el("span", { class: "settle-desc" }, [
+              el("span", { class: "settle-names" }, `${srow.fromName} → ${srow.toName}`),
+            ]),
+            el("span", { class: "settle-amt" }, formatMoney(srow.amount)),
+            el("span", { class: "settle-actions" }, [control]),
+          ]);
+        }),
+      ],
+    );
+  }
+
+  mount(container, summary, list, payments);
 }
