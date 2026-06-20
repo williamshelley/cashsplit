@@ -37,11 +37,14 @@ async function bootstrap() {
   // notice (above) without initializing against a placeholder config.
   const { auth, db } = await import("./firebase");
 
-  // Where Firebase sends the user after they click the verification link: back
-  // to the deployed site root. origin handles prod/dev hosts; BASE_URL is
-  // "/cashsplit/" in prod and "/" in dev. handleCodeInApp:false keeps Firebase's
-  // hosted verify handler (we don't process the oobCode ourselves).
-  const verifySettings = {
+  // Where Firebase sends the user back after an email action (verify or password
+  // reset): the deployed site root. Without it the user dead-ends on Firebase's
+  // generic page after acting; for reset that dead end is also how the "expired
+  // or already used" error happens — Back reloads the spent link. origin handles
+  // prod/dev hosts; BASE_URL is "/cashsplit/" in prod and "/" in dev.
+  // handleCodeInApp:false keeps Firebase's hosted handlers (we don't process the
+  // oobCode ourselves).
+  const continueSettings = {
     url: window.location.origin + import.meta.env.BASE_URL,
     handleCodeInApp: false,
   };
@@ -90,15 +93,15 @@ async function bootstrap() {
     const screen = authScreen(currentUser);
     if (screen === "auth") {
       renderAuth(appEl, {
-        signUp: async (email, password) => { await authApi.signUp(auth, email, password, verifySettings); },
+        signUp: async (email, password) => { await authApi.signUp(auth, email, password, continueSettings); },
         logIn: async (email, password) => { await authApi.logIn(auth, email, password); },
-        resetPassword: async (email) => { await authApi.resetPassword(auth, email); },
+        resetPassword: async (email) => { await authApi.resetPassword(auth, email, continueSettings); },
       });
       return;
     }
     if (screen === "verify") {
       renderVerify(appEl, currentUser?.email ?? "your email", {
-        resend: async () => { await authApi.resendVerification(auth, verifySettings); },
+        resend: async () => { await authApi.resendVerification(auth, continueSettings); },
         reload: async () => { await refreshVerification(); },
         logOut: async () => { await authApi.logOut(auth); },
       });

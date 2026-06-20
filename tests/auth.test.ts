@@ -31,11 +31,13 @@ function uniqueEmail(): string {
   return `user_${Math.random().toString(36).slice(2)}@example.com`;
 }
 
-async function oobCodes(): Promise<Array<{ requestType: string; email: string }>> {
+async function oobCodes(): Promise<Array<{ requestType: string; email: string; oobLink: string }>> {
   const res = await fetch(
     `http://${AUTH_HOST}/emulator/v1/projects/${PROJECT_ID}/oobCodes`,
   );
-  const json = (await res.json()) as { oobCodes?: Array<{ requestType: string; email: string }> };
+  const json = (await res.json()) as {
+    oobCodes?: Array<{ requestType: string; email: string; oobLink: string }>;
+  };
   return json.oobCodes ?? [];
 }
 
@@ -75,6 +77,16 @@ describe("resetPassword", () => {
     await resetPassword(auth, email);
     const codes = await oobCodes();
     expect(codes.some((c) => c.requestType === "PASSWORD_RESET" && c.email === email)).toBe(true);
+  });
+
+  it("threads the continue URL into the reset link so the user returns to the app", async () => {
+    const email = uniqueEmail();
+    await signUp(auth, email, "password123");
+    const continueUrl = "https://example.github.io/cashsplit/";
+    await resetPassword(auth, email, { url: continueUrl, handleCodeInApp: false });
+    const codes = await oobCodes();
+    const reset = codes.find((c) => c.requestType === "PASSWORD_RESET" && c.email === email);
+    expect(reset?.oobLink).toContain(`continueUrl=${encodeURIComponent(continueUrl)}`);
   });
 });
 

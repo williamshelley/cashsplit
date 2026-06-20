@@ -36,8 +36,21 @@ export async function logOut(auth: Auth): Promise<void> {
   await signOut(auth);
 }
 
-export async function resetPassword(auth: Auth, email: string): Promise<void> {
-  await sendPasswordResetEmail(auth, email);
+/**
+ * Send a password reset email.
+ *
+ * `resetSettings` (optional) sets the continue URL Firebase sends the user back
+ * to after they reset, so they land in the app instead of on Firebase's generic
+ * "password changed" page (whose only way back is the browser's Back button,
+ * which reloads the now-spent link as "expired or already used"). Omitted in
+ * tests, where there's no `window` to derive it.
+ */
+export async function resetPassword(
+  auth: Auth,
+  email: string,
+  resetSettings?: ActionCodeSettings,
+): Promise<void> {
+  await sendPasswordResetEmail(auth, email, resetSettings);
 }
 
 /** Re-send the verification email to the currently signed-in user. */
