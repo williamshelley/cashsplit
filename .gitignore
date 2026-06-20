@@ -11,3 +11,9 @@ coverage
 # Local browser-test artifacts (Playwright MCP)
 .playwright-mcp/
 *.png
+
+# Environment / secrets (never commit)
+.env
+.env.*
+*serviceAccount*.json
+*-firebase-adminsdk-*.json
