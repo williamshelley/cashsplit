@@ -112,6 +112,9 @@ export function renderExpenseForm(
     {
       onChange: (e: Event) => {
         state.method = (e.target as HTMLSelectElement).value as SplitMethod;
+        // Entered values mean different things per method (dollars vs percent vs
+        // shares); clear them so a switch can't silently reinterpret them.
+        state.values = {};
         renderValueInputs();
         refreshPreview();
       },
@@ -127,8 +130,12 @@ export function renderExpenseForm(
     people.map((p) => el("option", { value: p.id }, p.name)),
   );
 
+  let submitting = false;
   const onSubmit = async (e: Event) => {
     e.preventDefault();
+    if (submitting) return; // guard against double-submit while the write is in flight
+    submitting = true;
+    saveBtn.setAttribute("disabled", "true");
     const split = currentSplit();
     const expense: Expense = {
       id: genId(),
@@ -138,7 +145,13 @@ export function renderExpenseForm(
       date: new Date().toISOString().slice(0, 10),
       split,
     };
-    await handlers.onSave(expense);
+    try {
+      await handlers.onSave(expense);
+    } catch (err) {
+      submitting = false;
+      saveBtn.removeAttribute("disabled");
+      throw err;
+    }
   };
 
   const form = el("form", { class: "stack", onSubmit }, [

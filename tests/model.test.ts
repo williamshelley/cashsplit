@@ -76,6 +76,55 @@ describe("computeShares — percent", () => {
     });
     expect(computeShares(e, people)).toEqual({ a: 50, b: 150 });
   });
+
+  it("shares sum EXACTLY to the total despite per-share rounding", () => {
+    // 33.335 + 33.33 + 33.335 rounds to 100%, but naive per-share round2 gives
+    // 33.34 + 33.33 + 33.34 = 100.01 — an unsettleable penny.
+    const e = expense({
+      amount: 100,
+      split: {
+        method: "percent",
+        participants: ["a", "b", "c"],
+        values: { a: 33.335, b: 33.33, c: 33.335 },
+      },
+    });
+    const shares = computeShares(e, people);
+    expect(round2(shares.a + shares.b + shares.c)).toBe(100);
+  });
+});
+
+describe("computeShares — degenerate input", () => {
+  it("falls back to an even split instead of NaN when shares are all zero", () => {
+    const e = expense({
+      amount: 30,
+      split: { method: "shares", participants: ["a", "b", "c"], values: { a: 0, b: 0, c: 0 } },
+    });
+    const shares = computeShares(e, people);
+    expect(Number.isFinite(shares.a)).toBe(true);
+    expect(round2(shares.a + shares.b + shares.c)).toBe(30);
+  });
+
+  it("computeBalances never yields NaN/Infinity for a degenerate stored expense", () => {
+    const g: Group = {
+      name: "T",
+      createdAt: 0,
+      updatedAt: 0,
+      ownerUid: "ua",
+      memberUids: ["ua"],
+      people,
+      expenses: [
+        expense({
+          amount: 30,
+          paidBy: "a",
+          split: { method: "shares", participants: ["b", "c"], values: { b: 0, c: 0 } },
+        }),
+      ],
+      settlements: [],
+    };
+    const balances = computeBalances(g);
+    expect(balances.every((b) => Number.isFinite(b.amount))).toBe(true);
+    expect(round2(balances.reduce((s, b) => s + b.amount, 0))).toBe(0);
+  });
 });
 
 describe("computeShares — shares", () => {

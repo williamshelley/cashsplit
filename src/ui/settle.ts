@@ -56,7 +56,19 @@ export function renderSettle(container: HTMLElement, group: Group, handlers: Set
             actions.push(el("span", { class: "hint" }, `Add ${row.toName}'s Venmo to enable payment`));
           }
           actions.push(
-            el("button", { class: "btn", onClick: () => handlers.onMarkPaid(row) }, "Mark paid"),
+            el("button", {
+              class: "btn",
+              onClick: async (ev: Event) => {
+                const btn = ev.currentTarget as HTMLButtonElement;
+                if (btn.hasAttribute("disabled")) return; // ignore double-clicks while in flight
+                btn.setAttribute("disabled", "true");
+                try {
+                  await handlers.onMarkPaid(row);
+                } catch {
+                  btn.removeAttribute("disabled");
+                }
+              },
+            }, "Mark paid"),
           );
           return el("div", { class: "settle-row" }, [
             el("span", { class: "settle-desc" }, `${row.fromName} → ${row.toName}`),

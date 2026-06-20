@@ -62,8 +62,16 @@ export function validateSplit(split: Split, total: number): SplitValidation {
  * largest fractional remainders.
  */
 function distributeCents(totalCents: number, ids: string[], weights: number[]): Record<string, number> {
-  const weightSum = weights.reduce((s, w) => s + w, 0);
-  const exact = weights.map((w) => (totalCents * w) / weightSum);
+  if (ids.length === 0) return {};
+  let w = weights;
+  let weightSum = w.reduce((s, x) => s + x, 0);
+  // Degenerate weights (all zero, negative, or non-finite) can't define a split.
+  // Fall back to an even split so balances never become NaN/Infinity.
+  if (!(weightSum > 0) || !w.every((x) => Number.isFinite(x) && x >= 0)) {
+    w = ids.map(() => 1);
+    weightSum = ids.length;
+  }
+  const exact = w.map((x) => (totalCents * x) / weightSum);
   const floors = exact.map((v) => Math.floor(v));
   let remainder = totalCents - floors.reduce((s, v) => s + v, 0);
 
@@ -101,13 +109,14 @@ export function computeShares(expense: Expense, _people: Person[]): Record<strin
         participants,
         participants.map((id) => values[id] || 0),
       );
-    case "percent": {
-      const out: Record<string, number> = {};
-      for (const id of participants) {
-        out[id] = round2((amount * (values[id] || 0)) / 100);
-      }
-      return out;
-    }
+    case "percent":
+      // Distribute by percentage weights so the parts sum EXACTLY to the total
+      // (per-person rounding would otherwise leave an unsettleable penny).
+      return distributeCents(
+        totalCents,
+        participants,
+        participants.map((id) => values[id] || 0),
+      );
     case "exact": {
       const out: Record<string, number> = {};
       for (const id of participants) {

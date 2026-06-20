@@ -60,6 +60,22 @@ describe("renderSettle", () => {
     );
   });
 
+  it("does not record a duplicate settlement on a double-click", async () => {
+    let release!: () => void;
+    const onMarkPaid = vi.fn(() => new Promise<void>((r) => { release = r; }));
+    const container = document.createElement("div");
+    renderSettle(container, group(), { onMarkPaid });
+
+    const btn = Array.from(container.querySelectorAll("button")).find((b) =>
+      /mark paid/i.test(b.textContent ?? ""),
+    ) as HTMLButtonElement;
+    btn.click();
+    btn.click(); // second click while the first write is still in flight
+
+    expect(onMarkPaid).toHaveBeenCalledTimes(1);
+    release();
+  });
+
   it("shows an all-settled message when there is nothing to pay", () => {
     const container = document.createElement("div");
     renderSettle(container, group({ expenses: [] }), { onMarkPaid: vi.fn() });

@@ -106,6 +106,67 @@ describe("join", () => {
       updateDoc(doc(unverified("bob"), "groups/g1"), { memberUids: ["alice", "bob"] }),
     );
   });
+
+  it("a non-member joining cannot also seize ownership", async () => {
+    await assertFails(
+      updateDoc(doc(verified("mallory"), "groups/g1"), {
+        memberUids: ["alice", "mallory"],
+        ownerUid: "mallory",
+      }),
+    );
+  });
+
+  it("a non-member joining cannot wipe or alter group data", async () => {
+    await assertFails(
+      updateDoc(doc(verified("mallory"), "groups/g1"), {
+        memberUids: ["alice", "mallory"],
+        expenses: [{ id: "x", description: "h", amount: 0, paidBy: "x", date: "", split: {} }],
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(verified("mallory"), "groups/g1"), {
+        memberUids: ["alice", "mallory"],
+        people: [{ id: "h", name: "Hacker", venmo: null, uid: "mallory" }],
+      }),
+    );
+  });
+
+  it("a non-member joining cannot remove existing members", async () => {
+    await assertFails(
+      updateDoc(doc(verified("mallory"), "groups/g1"), { memberUids: ["mallory"] }),
+    );
+  });
+});
+
+describe("update — privilege boundaries", () => {
+  beforeEach(async () => {
+    // Re-seed g1 with two members for member-vs-member tests.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "groups/g1"), baseGroup({ memberUids: ["alice", "bob"] }));
+    });
+  });
+
+  it("a member cannot change the owner", async () => {
+    await assertFails(updateDoc(doc(verified("bob"), "groups/g1"), { ownerUid: "bob" }));
+  });
+
+  it("a member cannot remove another member", async () => {
+    await assertFails(updateDoc(doc(verified("bob"), "groups/g1"), { memberUids: ["bob"] }));
+  });
+
+  it("a member cannot alter createdAt", async () => {
+    await assertFails(updateDoc(doc(verified("bob"), "groups/g1"), { createdAt: 999 }));
+  });
+
+  it("a member can still edit group content (name, expenses)", async () => {
+    await assertSucceeds(
+      updateDoc(doc(verified("bob"), "groups/g1"), {
+        name: "Vacation",
+        expenses: [{ id: "e", description: "Tacos", amount: 9, paidBy: "p", date: "2026-01-01", split: {} }],
+        updatedAt: 1,
+      }),
+    );
+  });
 });
 
 describe("delete", () => {
