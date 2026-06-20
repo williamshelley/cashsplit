@@ -9,6 +9,7 @@ import {
   joinGroup,
   addPerson,
   linkPersonToUser,
+  updateOwnVenmo,
   removePerson,
   addExpense,
   updateExpense,
@@ -122,6 +123,53 @@ describe("membership + people", () => {
     const people = (await read(id)).people;
     expect(people.find((p) => p.id === "p3")?.uid).toBe("uB"); // moved to Carol
     expect(people.find((p) => p.id === "p2")?.uid).toBe(null); // unlinked from Bob
+  });
+});
+
+describe("updateOwnVenmo", () => {
+  it("updates the Venmo of the person linked to the given uid", async () => {
+    const id = await createGroup(db, { name: "T", ownerUid: "uA", ownerName: "Alice" });
+    await addPerson(db, id, person({ id: "p2", name: "Bob", uid: "uB", venmo: "old-bob" }));
+    await updateOwnVenmo(db, id, "uB", "new-bob");
+    expect((await read(id)).people.find((p) => p.uid === "uB")?.venmo).toBe("new-bob");
+  });
+
+  it("changes only the caller's own person, never anyone else's handle", async () => {
+    const id = await createGroup(db, {
+      name: "T",
+      ownerUid: "uA",
+      ownerName: "Alice",
+      ownerVenmo: "alice-v",
+    });
+    await addPerson(db, id, person({ id: "p2", name: "Bob", uid: "uB", venmo: "bob-v" }));
+    await updateOwnVenmo(db, id, "uA", "alice-new");
+    const people = (await read(id)).people;
+    expect(people.find((p) => p.uid === "uA")?.venmo).toBe("alice-new");
+    expect(people.find((p) => p.uid === "uB")?.venmo).toBe("bob-v"); // untouched
+  });
+
+  it("clears the handle when given null", async () => {
+    const id = await createGroup(db, {
+      name: "T",
+      ownerUid: "uA",
+      ownerName: "Alice",
+      ownerVenmo: "alice-v",
+    });
+    await updateOwnVenmo(db, id, "uA", null);
+    expect((await read(id)).people.find((p) => p.uid === "uA")?.venmo).toBe(null);
+  });
+
+  it("is a safe no-op when no person is linked to the uid", async () => {
+    const id = await createGroup(db, {
+      name: "T",
+      ownerUid: "uA",
+      ownerName: "Alice",
+      ownerVenmo: "alice-v",
+    });
+    await updateOwnVenmo(db, id, "uGhost", "ghost-v");
+    const people = (await read(id)).people;
+    expect(people.find((p) => p.uid === "uA")?.venmo).toBe("alice-v"); // untouched
+    expect(people.some((p) => p.venmo === "ghost-v")).toBe(false);
   });
 });
 

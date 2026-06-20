@@ -91,6 +91,14 @@ describe("CashSplit end-to-end (emulator)", () => {
       uid: null,
     });
     const ownerPersonId = (await readGroup(groupId)).people.find((p) => p.uid === owner.uid)!.id;
+
+    // 5b. The owner sets their OWN Venmo via updateOwnVenmo. It updates only the
+    //     person linked to their uid and leaves name-only Bob's handle untouched.
+    await dbApi.updateOwnVenmo(db, groupId, owner.uid, "owner-v");
+    const afterVenmo = await readGroup(groupId);
+    expect(afterVenmo.people.find((p) => p.uid === owner.uid)?.venmo).toBe("owner-v");
+    expect(afterVenmo.people.find((p) => p.id === "bob")?.venmo).toBe("bob-v");
+
     await dbApi.addExpense(db, groupId, {
       id: "exp1",
       description: "Cab",

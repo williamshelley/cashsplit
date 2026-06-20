@@ -49,7 +49,7 @@ function actions(over: Partial<GroupActions> = {}): GroupActions {
   return {
     currentUid: "uA",
     addPerson: vi.fn(),
-    updatePerson: vi.fn(),
+    updateOwnVenmo: vi.fn(),
     linkPerson: vi.fn(),
     removePerson: vi.fn(),
     addExpense: vi.fn(),
@@ -217,5 +217,93 @@ describe("People tab: connect to a person", () => {
 
     rowButton(personRow(container, "Carol"), "This is me")!.click();
     expect(document.body.querySelector(".modal-overlay")?.textContent).toMatch(/already linked/i);
+  });
+});
+
+describe("People tab: only a linked user can edit their own Venmo", () => {
+  // Everyone has a handle so we can tell an editable input from read-only text.
+  function withVenmos(): GroupDoc {
+    return {
+      ...multiGroup(),
+      people: [
+        { id: "a", name: "Alice", venmo: "alice-v", uid: "uA" },
+        { id: "b", name: "Bob", venmo: "bob-v", uid: null },
+        { id: "c", name: "Carol", venmo: "carol-v", uid: "uC" },
+      ],
+    };
+  }
+
+  it("renders an editable Venmo input only on the row linked to you", () => {
+    const container = document.createElement("div");
+    renderGroup(container, withVenmos(), actions({ currentUid: "uA" }), "people");
+
+    // Your own row (Alice/uA): an editable input prefilled with your handle.
+    const aliceInput = personRow(container, "Alice").querySelector("input");
+    expect(aliceInput).toBeTruthy();
+    expect((aliceInput as HTMLInputElement).value).toBe("@alice-v");
+
+    // Everyone else: no input — the handle is shown read-only.
+    expect(personRow(container, "Bob").querySelector("input")).toBeNull();
+    expect(personRow(container, "Carol").querySelector("input")).toBeNull();
+  });
+
+  it("shows other people's Venmo as read-only text (still visible for paying them)", () => {
+    const container = document.createElement("div");
+    renderGroup(container, withVenmos(), actions({ currentUid: "uA" }), "people");
+
+    expect(personRow(container, "Bob").textContent).toContain("@bob-v");
+    expect(personRow(container, "Carol").textContent).toContain("@carol-v");
+  });
+
+  it("saves your own Venmo via updateOwnVenmo, stripping the leading @", async () => {
+    const updateOwnVenmo = vi.fn();
+    const container = document.createElement("div");
+    renderGroup(container, withVenmos(), actions({ currentUid: "uA", updateOwnVenmo }), "people");
+
+    const input = personRow(container, "Alice").querySelector("input") as HTMLInputElement;
+    input.value = "@alice2";
+    input.dispatchEvent(new Event("change"));
+    await Promise.resolve();
+
+    expect(updateOwnVenmo).toHaveBeenCalledWith("alice2");
+  });
+
+  it("shows no editable Venmo input at all when you are not linked to anyone", () => {
+    const container = document.createElement("div");
+    // currentUid uX is a member but not linked to any person.
+    renderGroup(container, withVenmos(), actions({ currentUid: "uX" }), "people");
+
+    for (const name of ["Alice", "Bob", "Carol"]) {
+      expect(personRow(container, name).querySelector("input")).toBeNull();
+    }
+  });
+});
+
+describe("People tab: add-person form no longer sets Venmo", () => {
+  it("offers only a name field (no Venmo) in the add form", () => {
+    const container = document.createElement("div");
+    renderGroup(container, group(), actions(), "people");
+
+    const form = container.querySelector("form") as HTMLFormElement;
+    const inputs = Array.from(form.querySelectorAll("input"));
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0].placeholder).toMatch(/name/i);
+    expect(inputs.some((i) => /venmo/i.test(i.placeholder))).toBe(false);
+  });
+
+  it("adds a person with no Venmo handle", async () => {
+    const addPerson = vi.fn();
+    const container = document.createElement("div");
+    renderGroup(container, group(), actions({ addPerson }), "people");
+
+    const form = container.querySelector("form") as HTMLFormElement;
+    const nameInput = form.querySelector("input") as HTMLInputElement;
+    nameInput.value = "Dave";
+    nameInput.dispatchEvent(new Event("input"));
+    form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    await Promise.resolve();
+
+    expect(addPerson).toHaveBeenCalledTimes(1);
+    expect(addPerson.mock.calls[0][0]).toMatchObject({ name: "Dave", venmo: null, uid: null });
   });
 });
