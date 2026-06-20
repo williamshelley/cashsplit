@@ -10,6 +10,7 @@ import {
   addPerson,
   linkPersonToUser,
   updateOwnVenmo,
+  updateOwnName,
   removePerson,
   addExpense,
   updateExpense,
@@ -170,6 +171,44 @@ describe("updateOwnVenmo", () => {
     const people = (await read(id)).people;
     expect(people.find((p) => p.uid === "uA")?.venmo).toBe("alice-v"); // untouched
     expect(people.some((p) => p.venmo === "ghost-v")).toBe(false);
+  });
+});
+
+describe("updateOwnName", () => {
+  it("updates the name of the person linked to the given uid", async () => {
+    const id = await createGroup(db, { name: "T", ownerUid: "uA", ownerName: "Alice" });
+    await addPerson(db, id, person({ id: "p2", name: "Bob", uid: "uB" }));
+    await updateOwnName(db, id, "uB", "Bobby");
+    expect((await read(id)).people.find((p) => p.uid === "uB")?.name).toBe("Bobby");
+  });
+
+  it("changes only the caller's own person, never anyone else's name", async () => {
+    const id = await createGroup(db, { name: "T", ownerUid: "uA", ownerName: "Alice" });
+    await addPerson(db, id, person({ id: "p2", name: "Bob", uid: "uB" }));
+    await updateOwnName(db, id, "uA", "Alicia");
+    const people = (await read(id)).people;
+    expect(people.find((p) => p.uid === "uA")?.name).toBe("Alicia");
+    expect(people.find((p) => p.uid === "uB")?.name).toBe("Bob"); // untouched
+  });
+
+  it("trims surrounding whitespace from the saved name", async () => {
+    const id = await createGroup(db, { name: "T", ownerUid: "uA", ownerName: "Alice" });
+    await updateOwnName(db, id, "uA", "  Alicia  ");
+    expect((await read(id)).people.find((p) => p.uid === "uA")?.name).toBe("Alicia");
+  });
+
+  it("ignores a blank / whitespace-only name (a name is required)", async () => {
+    const id = await createGroup(db, { name: "T", ownerUid: "uA", ownerName: "Alice" });
+    await updateOwnName(db, id, "uA", "   ");
+    expect((await read(id)).people.find((p) => p.uid === "uA")?.name).toBe("Alice"); // untouched
+  });
+
+  it("is a safe no-op when no person is linked to the uid", async () => {
+    const id = await createGroup(db, { name: "T", ownerUid: "uA", ownerName: "Alice" });
+    await updateOwnName(db, id, "uGhost", "Ghost");
+    const people = (await read(id)).people;
+    expect(people.find((p) => p.uid === "uA")?.name).toBe("Alice"); // untouched
+    expect(people.some((p) => p.name === "Ghost")).toBe(false);
   });
 });
 

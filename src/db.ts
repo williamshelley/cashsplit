@@ -91,6 +91,30 @@ export async function updateOwnVenmo(
 }
 
 /**
+ * Update the display name of the person linked to `uid`. Locating the target by
+ * `uid` (rather than person id) is what enforces "only a linked user can change
+ * their own name": the caller can only ever touch their own person. A no-op if no
+ * person in the group is linked to `uid`, or if `name` is blank after trimming
+ * (a name is required, so we never clear it).
+ */
+export async function updateOwnName(
+  db: Firestore,
+  id: string,
+  uid: string,
+  name: string,
+): Promise<void> {
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const ref = doc(db, GROUPS, id);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data() as Group;
+    const people = data.people.map((p) => (p.uid === uid ? { ...p, name: trimmed } : p));
+    tx.update(ref, { people, ...touch() });
+  });
+}
+
+/**
  * Link `uid` to the person with `personId`, clearing it from any other person
  * so the user is linked to exactly one person (covers re-claiming and takeover).
  */

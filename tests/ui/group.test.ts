@@ -50,6 +50,7 @@ function actions(over: Partial<GroupActions> = {}): GroupActions {
     currentUid: "uA",
     addPerson: vi.fn(),
     updateOwnVenmo: vi.fn(),
+    updateOwnName: vi.fn(),
     linkPerson: vi.fn(),
     removePerson: vi.fn(),
     addExpense: vi.fn(),
@@ -275,6 +276,50 @@ describe("People tab: only a linked user can edit their own Venmo", () => {
 
     for (const name of ["Alice", "Bob", "Carol"]) {
       expect(personRow(container, name).querySelector("input")).toBeNull();
+    }
+  });
+});
+
+describe("People tab: only a linked user can edit their own name", () => {
+  function modalInput(): HTMLInputElement | null {
+    return document.body.querySelector(".modal-overlay input");
+  }
+
+  it("offers an Edit button only on the row linked to you", () => {
+    const container = document.createElement("div");
+    renderGroup(container, multiGroup(), actions({ currentUid: "uA" }), "people");
+
+    // Your own row (Alice/uA) can be renamed; nobody else's row can.
+    expect(rowButton(personRow(container, "Alice"), "Edit")).toBeTruthy();
+    expect(rowButton(personRow(container, "Bob"), "Edit")).toBeUndefined();
+    expect(rowButton(personRow(container, "Carol"), "Edit")).toBeUndefined();
+  });
+
+  it("opens a prompt prefilled with your name and saves via updateOwnName", async () => {
+    const updateOwnName = vi.fn();
+    const container = document.createElement("div");
+    renderGroup(container, multiGroup(), actions({ currentUid: "uA", updateOwnName }), "people");
+
+    rowButton(personRow(container, "Alice"), "Edit")!.click();
+
+    // The prompt is prefilled with the current name.
+    expect(modalInput()?.value).toBe("Alice");
+
+    modalInput()!.value = "  Alicia  ";
+    modalButton("Save")!.click();
+    await Promise.resolve();
+
+    // promptModal hands onSubmit the trimmed value.
+    expect(updateOwnName).toHaveBeenCalledWith("Alicia");
+  });
+
+  it("offers no Edit button when you are not linked to anyone", () => {
+    const container = document.createElement("div");
+    // currentUid uX is a member but not linked to any person.
+    renderGroup(container, multiGroup(), actions({ currentUid: "uX" }), "people");
+
+    for (const name of ["Alice", "Bob", "Carol"]) {
+      expect(rowButton(personRow(container, name), "Edit")).toBeUndefined();
     }
   });
 });
