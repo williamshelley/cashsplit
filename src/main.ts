@@ -149,7 +149,7 @@ async function bootstrap() {
     const actions: GroupActions = {
       currentUid: uid,
       addPerson: (p) => dbApi.addPerson(db, id, p),
-      updatePerson: (p) => dbApi.updatePerson(db, id, p),
+      updateOwnVenmo: (venmo) => dbApi.updateOwnVenmo(db, id, uid, venmo),
       linkPerson: (pid) => dbApi.linkPersonToUser(db, id, pid, uid),
       removePerson: (pid) => dbApi.removePerson(db, id, pid),
       addExpense: (e) => dbApi.addExpense(db, id, e),

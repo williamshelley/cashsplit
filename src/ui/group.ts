@@ -11,7 +11,8 @@ import type { Expense, ExpenseInput, GroupDoc, Person, Settlement } from "../typ
 export interface GroupActions {
   currentUid: string;
   addPerson: (p: Person) => Promise<void>;
-  updatePerson: (p: Person) => Promise<void>;
+  /** Update the Venmo handle of the current user's own linked person. */
+  updateOwnVenmo: (venmo: string | null) => Promise<void>;
   /** Link the current user to the person with the given id. */
   linkPerson: (personId: string) => Promise<void>;
   removePerson: (personId: string) => Promise<void>;
@@ -159,8 +160,9 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
   const linked = group.people.some((p) => p.uid === actions.currentUid);
 
   const nameInput = el("input", { type: "text", placeholder: "Name" });
-  const venmoInput = el("input", { type: "text", placeholder: "Venmo handle (optional, e.g. @jane)" });
 
+  // Venmo is intentionally not collected here: a handle can only be set by the
+  // account it belongs to, on its own row below (after "Add as me" / "This is me").
   const addPerson = async (e: Event, linkSelf: boolean) => {
     e.preventDefault();
     const name = nameInput.value.trim();
@@ -168,11 +170,10 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
     await actions.addPerson({
       id: genId(),
       name,
-      venmo: normalizeHandle(venmoInput.value),
+      venmo: null,
       uid: linkSelf ? actions.currentUid : null,
     });
     nameInput.value = "";
-    venmoInput.value = "";
   };
 
   const currentPerson = group.people.find((p) => p.uid === actions.currentUid);
@@ -208,15 +209,20 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
       el("h3", {}, "People") as Node,
       el("div", { class: "hint" }, `${summary.linked} of ${summary.total} linked`) as Node,
       ...group.people.map((p) => {
-        const venmoField = el("input", {
-          type: "text",
-          value: p.venmo ? `@${p.venmo}` : "",
-          placeholder: "Venmo handle",
-          style: "max-width:200px",
-          onChange: async (ev: Event) => {
-            await actions.updatePerson({ ...p, venmo: normalizeHandle((ev.target as HTMLInputElement).value) });
-          },
-        });
+        const isMe = p.uid === actions.currentUid;
+        // Only the linked account may edit its own handle. Everyone else's is
+        // shown read-only so they stay visible for paying that person.
+        const venmoField = isMe
+          ? el("input", {
+              type: "text",
+              value: p.venmo ? `@${p.venmo}` : "",
+              placeholder: "Venmo handle",
+              style: "max-width:200px",
+              onChange: async (ev: Event) => {
+                await actions.updateOwnVenmo(normalizeHandle((ev.target as HTMLInputElement).value));
+              },
+            })
+          : el("span", { class: "hint venmo-readonly" }, p.venmo ? `@${p.venmo}` : "No Venmo");
         return el("div", { class: "list-item" }, [
           el("span", { style: "flex:1" }, [
             el("strong", {}, p.name),
@@ -247,7 +253,6 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
       el("h3", {}, "Add a person"),
       el("form", { class: "stack", onSubmit: (e: Event) => addPerson(e, false) }, [
         nameInput,
-        venmoInput,
         el("div", { class: "row" }, [
           el("button", { class: "btn primary", type: "submit" }, "Add person"),
           linked

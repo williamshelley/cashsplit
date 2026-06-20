@@ -69,13 +69,23 @@ export async function addPerson(db: Firestore, id: string, person: Person): Prom
   await updateDoc(doc(db, GROUPS, id), { people: arrayUnion(person), ...touch() });
 }
 
-/** Read-modify-write a group's `people`, replacing the person with the same id. */
-export async function updatePerson(db: Firestore, id: string, person: Person): Promise<void> {
+/**
+ * Update the Venmo handle of the person linked to `uid`. Locating the target by
+ * `uid` (rather than person id) is what enforces "only a linked user can change
+ * their own handle": the caller can only ever touch their own person. A no-op if
+ * no person in the group is linked to `uid`.
+ */
+export async function updateOwnVenmo(
+  db: Firestore,
+  id: string,
+  uid: string,
+  venmo: string | null,
+): Promise<void> {
   const ref = doc(db, GROUPS, id);
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const data = snap.data() as Group;
-    const people = data.people.map((p) => (p.id === person.id ? person : p));
+    const people = data.people.map((p) => (p.uid === uid ? { ...p, venmo } : p));
     tx.update(ref, { people, ...touch() });
   });
 }
