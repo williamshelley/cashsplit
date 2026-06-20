@@ -2,7 +2,15 @@ import { el, mount } from "./dom";
 import { confirmModal, promptModal } from "./modal";
 import { renderSettle } from "./settle";
 import { renderExpenseForm } from "./expenseForm";
-import { formatMoney, personLinkState, linkSummary, type LinkState } from "./viewmodel";
+import {
+  formatMoney,
+  personLinkState,
+  linkSummary,
+  balanceSummary,
+  emojiForExpense,
+  type LinkState,
+} from "./viewmodel";
+import { avatar } from "./avatar";
 import { computeShares, round2 } from "../model";
 import { normalizeHandle } from "../venmo";
 import { genId } from "../db";
@@ -58,10 +66,19 @@ export function renderGroup(
 
   mount(
     container,
-    el("div", { class: "topbar" }, [
-      el("div", { class: "row" }, [
-        el("button", { class: "btn small", onClick: () => actions.onBack() }, "← Groups"),
-        el("strong", { style: "margin-left:8px" }, group.name),
+    el("div", { class: "topbar group-topbar" }, [
+      el(
+        "button",
+        { class: "btn icon-btn", onClick: () => actions.onBack(), "aria-label": "Back to groups" },
+        "←",
+      ),
+      el("div", { class: "group-heading" }, [
+        el("strong", { class: "group-title" }, group.name),
+        el(
+          "div",
+          { class: "hint" },
+          `${plural(group.people.length, "person", "people")} · ${plural(group.expenses.length, "expense", "expenses")}`,
+        ),
       ]),
     ]),
     el("div", { class: "tabs" }, [
@@ -76,6 +93,20 @@ export function renderGroup(
 
 function personName(group: GroupDoc, id: string): string {
   return group.people.find((p) => p.id === id)?.name ?? "Unknown";
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** A small right-aligned net-balance badge: owed (green) / owes (coral) / settled. */
+function personNetEl(amount: number): HTMLElement {
+  if (Math.abs(amount) < 0.005) {
+    return el("div", { class: "net net-zero" }, [el("div", { class: "net-label" }, "settled")]);
+  }
+  const pos = amount > 0;
+  return el("div", { class: `net ${pos ? "net-pos" : "net-neg"}` }, [
+    el("div", { class: "net-amt" }, formatMoney(Math.abs(amount))),
+    el("div", { class: "net-label" }, pos ? "owed" : "owes"),
+  ]);
 }
 
 const LINK_LABEL: Record<LinkState, string> = {
@@ -132,18 +163,24 @@ function renderExpensesTab(body: HTMLElement, group: GroupDoc, actions: GroupAct
                 .map((id) => `${personName(group, id)} ${formatMoney(shares[id] ?? 0)}`)
                 .join(" · ");
               const edited = e.updatedAt != null && e.createdAt != null && e.updatedAt > e.createdAt;
-              return el("div", { class: "list-item" }, [
-                el("span", { style: "flex:1" }, [
-                  el("strong", {}, `${e.description} — ${formatMoney(e.amount)}`),
+              return el("div", { class: "list-item expense" }, [
+                el("div", { class: "icon-tile" }, emojiForExpense(e.description)),
+                el("div", { class: "expense-main" }, [
+                  el("div", { class: "expense-head" }, [
+                    el("strong", { class: "expense-title" }, e.description),
+                    el("span", { class: "expense-amt" }, formatMoney(e.amount)),
+                  ]),
                   el(
                     "div",
                     { class: "hint" },
                     `Paid by ${personName(group, e.paidBy)} · ${e.date}${edited ? " · edited" : ""}`,
                   ),
-                  el("div", { class: "hint" }, detail),
+                  el("div", { class: "hint split-detail" }, detail),
+                  el("div", { class: "row expense-actions" }, [
+                    el("button", { class: "btn small", onClick: () => openForm(e) }, "Edit"),
+                    el("button", { class: "btn small danger", onClick: async () => { await actions.removeExpense(e.id); } }, "Delete"),
+                  ]),
                 ]),
-                el("button", { class: "btn small", onClick: () => openForm(e) }, "Edit"),
-                el("button", { class: "btn small danger", onClick: async () => { await actions.removeExpense(e.id); } }, "Delete"),
               ]);
             }),
         );
@@ -204,6 +241,7 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
   };
 
   const summary = linkSummary(group);
+  const balances = new Map(balanceSummary(group).map((b) => [b.personId, b.amount]));
   const peopleList = el(
     "div",
     { class: "card" },
@@ -217,43 +255,49 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
         const venmoField = isMe
           ? el("input", {
               type: "text",
+              class: "venmo-input",
               value: p.venmo ? `@${p.venmo}` : "",
-              placeholder: "Venmo handle",
-              style: "max-width:200px",
+              placeholder: "Add your Venmo handle",
               onChange: async (ev: Event) => {
                 await actions.updateOwnVenmo(normalizeHandle((ev.target as HTMLInputElement).value));
               },
             })
-          : el("span", { class: "hint venmo-readonly" }, p.venmo ? `@${p.venmo}` : "No Venmo");
-        return el("div", { class: "list-item" }, [
-          el("span", { style: "flex:1" }, [
-            el("strong", {}, p.name),
-            linkBadge(personLinkState(p, actions.currentUid)),
-            // Only the linked account may rename its own person.
-            isMe
-              ? el(
-                  "button",
-                  {
-                    class: "btn small",
-                    style: "margin-left:8px",
-                    onClick: () =>
-                      promptModal({
-                        title: "Edit your name",
-                        initialValue: p.name,
-                        confirmLabel: "Save",
-                        onSubmit: (name) => actions.updateOwnName(name),
-                      }),
-                  },
-                  "Edit",
-                )
-              : null,
+          : el("span", { class: "hint venmo-readonly" }, p.venmo ? `@${p.venmo}` : "No Venmo handle");
+        // Only the linked account may rename its own person.
+        const editNameBtn = isMe
+          ? el(
+              "button",
+              {
+                class: "btn small",
+                onClick: () =>
+                  promptModal({
+                    title: "Edit your name",
+                    initialValue: p.name,
+                    confirmLabel: "Save",
+                    onSubmit: (name) => actions.updateOwnName(name),
+                  }),
+              },
+              "Edit",
+            )
+          : null;
+        return el("div", { class: "list-item person" }, [
+          avatar(p, actions.currentUid),
+          el("div", { class: "person-main" }, [
+            el("div", { class: "person-head" }, [
+              el("strong", {}, p.name),
+              linkBadge(personLinkState(p, actions.currentUid)),
+              editNameBtn,
+            ]),
+            venmoField,
           ]),
-          // Let a member claim any person but the one they're already linked to.
-          p.uid === actions.currentUid
-            ? null
-            : el("button", { class: "btn small", onClick: () => confirmLink(p) }, "This is me"),
-          venmoField,
-          el("button", { class: "btn small danger", onClick: async () => { await actions.removePerson(p.id); } }, "Remove"),
+          el("div", { class: "person-side" }, [
+            personNetEl(balances.get(p.id) ?? 0),
+            el("div", { class: "person-actions" }, [
+              // Let a member claim any person but the one they're already linked to.
+              isMe ? null : el("button", { class: "btn small", onClick: () => confirmLink(p) }, "This is me"),
+              el("button", { class: "btn small danger", onClick: async () => { await actions.removePerson(p.id); } }, "Remove"),
+            ]),
+          ]),
         ]);
       }),
     ],

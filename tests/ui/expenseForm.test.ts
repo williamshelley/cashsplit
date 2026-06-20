@@ -25,12 +25,14 @@ function setup(onSave: (e: ExpenseInput) => void | Promise<void>) {
     /add expense/i.test(b.textContent ?? ""),
   ) as HTMLButtonElement;
   const form = container.querySelector("form") as HTMLFormElement;
-  const methodSelect = Array.from(container.querySelectorAll("select")).find((s) =>
-    /Exact amounts/.test(s.textContent ?? ""),
-  ) as HTMLSelectElement;
+  // The split method is a segmented control: one ".seg" button per method.
+  const methodButton = (label: string) =>
+    Array.from(container.querySelectorAll("button.seg")).find(
+      (b) => b.textContent === label,
+    ) as HTMLButtonElement;
   const valueInputs = () =>
     (Array.from(container.querySelectorAll('input[type="number"]')) as HTMLInputElement[]).slice(1);
-  return { container, saveBtn, form, methodSelect, valueInputs };
+  return { container, saveBtn, form, methodButton, valueInputs };
 }
 
 const submit = (form: HTMLFormElement) =>
@@ -51,17 +53,15 @@ describe("renderExpenseForm", () => {
   });
 
   it("resets per-person values when the split method changes", () => {
-    const { methodSelect, valueInputs } = setup(vi.fn());
+    const { methodButton, valueInputs } = setup(vi.fn());
 
-    methodSelect.value = "exact";
-    methodSelect.dispatchEvent(new Event("change"));
+    methodButton("Exact").click();
     const first = valueInputs()[0];
     first.value = "12.5";
     first.dispatchEvent(new Event("input"));
 
     // Switching the method must not carry dollar entries over as percentages/shares.
-    methodSelect.value = "percent";
-    methodSelect.dispatchEvent(new Event("change"));
+    methodButton("Percent").click();
     expect(valueInputs().every((i) => i.value === "")).toBe(true);
   });
 

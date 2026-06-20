@@ -73,6 +73,16 @@ describe("class coverage — no screen loses its styling in the swap", () => {
   });
 });
 
+describe("full-fidelity components are styled", () => {
+  const components = [
+    "logo", "avatar", "avatar-stack", "icon-tile",
+    "group-card", "net", "dashed", "segmented", "seg", "expense-sheet",
+  ];
+  it.each(components)("styles .%s", (cls) => {
+    expect(hasSelector(cls)).toBe(true);
+  });
+});
+
 describe("font + browser chrome contracts", () => {
   it("loads Hanken Grotesk via a <link> in index.html (not a CSS @import)", () => {
     expect(/<link[^>]+Hanken\+Grotesk/i.test(html)).toBe(true);

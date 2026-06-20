@@ -191,6 +191,154 @@ ul { list-style: none; padding: 0; margin: 0; }
 .center { text-align: center; }
 .stack > * + * { margin-top: 10px; }
 
+/* ---- Pocket structural components ---- */
+
+/* Logo lockup ($ tile + wordmark) used on auth + home. */
+.brand-lockup { display: flex; align-items: center; gap: 10px; }
+.logo {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--brand);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.45rem;
+  flex: none;
+}
+
+/* Auth screen: vertically-centered column with title above the card. */
+.auth { min-height: 80vh; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+.auth h2 { margin: 18px 0 4px; }
+.auth-sub { margin: 0 0 6px; }
+
+/* Circular initials avatars + overlapping stacks. */
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex: none;
+  line-height: 1;
+}
+.avatar.sm { width: 28px; height: 28px; font-size: 0.72rem; }
+.avatar-stack { display: inline-flex; align-items: center; }
+.avatar-stack .avatar { margin-right: -8px; box-shadow: 0 0 0 2px var(--panel); }
+.avatar-stack .avatar:last-child { margin-right: 8px; }
+
+/* Circular icon button (back chevron, sheet close). */
+.btn.icon-btn { width: 38px; height: 38px; padding: 0; border-radius: var(--pill); font-size: 1.1rem; flex: none; }
+
+/* Dashed "+ New group" button. */
+.btn.dashed { width: 100%; border-style: dashed; color: var(--brand); padding: 16px; border-radius: var(--radius-lg); font-weight: 700; }
+.btn.dashed:hover { transform: none; background: rgba(242, 104, 63, 0.05); }
+.new-group { margin-top: 4px; }
+
+/* Net-balance badge (home cards, people rows, etc.). */
+.net { text-align: right; }
+.net-amt { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 1.05rem; }
+.net-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.net.net-pos .net-amt { color: #2fa37a; }
+.net.net-neg .net-amt { color: var(--danger); }
+.net.net-zero .net-amt, .net.net-zero .net-label { color: var(--muted); }
+
+.home-summary { margin: -4px 0 14px; }
+
+/* Tappable group cards on home. */
+.group-card { cursor: pointer; }
+.group-card:hover { transform: translateY(-2px); }
+.group-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.group-name { font-size: 1.1rem; }
+.group-card-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+
+/* Group header: chevron + title + meta. */
+.group-topbar { align-items: center; gap: 10px; }
+.group-heading { min-width: 0; }
+.group-title { display: block; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Expense rows: emoji tile + content column. */
+.list-item.expense { align-items: flex-start; gap: 12px; }
+.icon-tile {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--panel-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex: none;
+}
+.expense-main { flex: 1; min-width: 0; }
+.expense-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.expense-title { font-size: 1rem; }
+.expense-amt { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.split-detail { color: var(--faint); }
+.expense-actions { margin-top: 8px; }
+
+/* People rows: avatar + main + side. */
+.list-item.person { gap: 12px; }
+.person-main { flex: 1; min-width: 0; }
+.person-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.person-main .venmo-input { max-width: 220px; margin-top: 6px; }
+.venmo-readonly { display: block; margin-top: 4px; }
+.person-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex: none; }
+.person-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* Balances + settle rows with avatars. */
+.balances .bal-person { display: inline-flex; align-items: center; gap: 8px; }
+.balances .owed .bal-amt { color: #2fa37a; font-weight: 600; }
+.balances .owes .bal-amt { color: var(--danger); font-weight: 600; }
+.settle-desc { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.settle-arrow { color: var(--muted); }
+.settle-names { color: var(--muted); font-size: 0.9rem; }
+
+/* Segmented control (split method) + participant toggle chips. */
+.segmented { display: flex; gap: 6px; flex-wrap: wrap; }
+.seg {
+  flex: 1;
+  min-width: 72px;
+  padding: 9px 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--pill);
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+.seg.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.checks label input { position: absolute; opacity: 0; pointer-events: none; }
+.checks label:has(input:checked) { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+/* Expense form as a bottom-sheet (mobile) / centered dialog (desktop). */
+.sheet-overlay { align-items: flex-end; padding: 0; }
+.expense-sheet {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  border-radius: 22px 22px 0 0;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 -10px 40px rgba(58, 46, 40, 0.25);
+  animation: sheet-up 0.26s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.sheet-head h3 { margin: 0; }
+.sheet-actions { justify-content: flex-end; margin-top: 4px; }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@media (min-width: 640px) {
+  .sheet-overlay { align-items: center; padding: 16px; }
+  .expense-sheet { border-radius: var(--radius-lg); max-height: 88vh; }
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;

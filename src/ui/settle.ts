@@ -1,5 +1,6 @@
 import { el, mount } from "./dom";
 import { balanceSummary, formatMoney, settleRows, type SettleRow } from "./viewmodel";
+import { avatar } from "./avatar";
 import type { Group } from "../types";
 
 export interface SettleHandlers {
@@ -32,20 +33,24 @@ export function renderSettle(
     el(
       "ul",
       { class: "balances" },
-      balances.map((b) =>
-        el("li", { class: b.amount >= 0 ? "owed" : "owes" }, [
-          el("span", {}, b.name),
+      balances.map((b) => {
+        const p = group.people.find((pp) => pp.id === b.personId);
+        return el("li", { class: b.amount >= 0 ? "owed" : "owes" }, [
+          el("span", { class: "bal-person" }, [
+            p ? avatar(p, currentUid, { small: true }) : null,
+            el("span", {}, b.name),
+          ]),
           el(
             "span",
-            {},
+            { class: "bal-amt" },
             b.amount === 0
               ? "settled up"
               : b.amount > 0
                 ? `is owed ${formatMoney(b.amount)}`
                 : `owes ${formatMoney(-b.amount)}`,
           ),
-        ]),
-      ),
+        ]);
+      }),
     ),
   ]);
 
@@ -100,8 +105,15 @@ export function renderSettle(
               }, "Mark paid"),
             );
           }
+          const fromP = group.people.find((p) => p.id === row.fromId);
+          const toP = group.people.find((p) => p.id === row.toId);
           return el("div", { class: "settle-row" }, [
-            el("span", { class: "settle-desc" }, `${row.fromName} → ${row.toName}`),
+            el("span", { class: "settle-desc" }, [
+              fromP ? avatar(fromP, currentUid, { small: true }) : null,
+              el("span", { class: "settle-arrow" }, "→"),
+              toP ? avatar(toP, currentUid, { small: true }) : null,
+              el("span", { class: "settle-names" }, `${row.fromName} → ${row.toName}`),
+            ]),
             el("span", { class: "settle-amt" }, formatMoney(row.amount)),
             el("span", { class: "settle-actions" }, actions),
           ]);
