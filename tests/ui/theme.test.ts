@@ -44,6 +44,13 @@ describe("Pocket design tokens", () => {
   it("constrains the app column to Pocket's 600px width", () => {
     expect(/#app\s*\{[^}]*max-width:\s*600px/.test(css)).toBe(true);
   });
+
+  it("gives h2 a bold display size (auth titles render at the Pocket scale)", () => {
+    // The auth screens use <h2> ("Welcome back" / "Create your account"); without
+    // an explicit rule they fall back to the browser default instead of the
+    // Pocket display scale. Require a dedicated h2 rule with a font-size.
+    expect(/(^|[\s,}])h2\s*\{[^}]*font-size/.test(css)).toBe(true);
+  });
 });
 
 describe("class coverage — no screen loses its styling in the swap", () => {

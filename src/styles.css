@@ -37,6 +37,8 @@ a { color: var(--brand); }
 
 h1, h2, h3 { margin: 0 0 12px; letter-spacing: -0.02em; }
 h1 { font-size: 1.7rem; font-weight: 800; }
+/* Auth screens use <h2> for their titles — give them the Pocket display scale. */
+h2 { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; }
 h3 { font-size: 1.05rem; font-weight: 700; }
 
 .topbar {
