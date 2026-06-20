@@ -1,7 +1,21 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderGroup, type GroupActions } from "../../src/ui/group";
-import type { GroupDoc } from "../../src/types";
+import type { Expense, GroupDoc } from "../../src/types";
+
+function expense(over: Partial<Expense> = {}): Expense {
+  return {
+    id: "e1",
+    description: "Dinner",
+    amount: 20,
+    paidBy: "a",
+    date: "2026-01-01",
+    split: { method: "equal", participants: ["a"], values: {} },
+    createdAt: 1000,
+    updatedAt: 1000,
+    ...over,
+  };
+}
 
 function group(): GroupDoc {
   return {
@@ -39,6 +53,7 @@ function actions(over: Partial<GroupActions> = {}): GroupActions {
     linkPerson: vi.fn(),
     removePerson: vi.fn(),
     addExpense: vi.fn(),
+    updateExpense: vi.fn(),
     removeExpense: vi.fn(),
     addSettlement: vi.fn(),
     onBack: vi.fn(),
@@ -95,6 +110,58 @@ describe("renderGroup tab control", () => {
     // And the settle tab when that is the active tab.
     renderGroup(container, group(), actions(), "settle");
     expect(container.textContent).toContain("Balances");
+  });
+});
+
+describe("Expenses tab: editing", () => {
+  it("opens a prefilled edit form and saves via updateExpense, keeping the id", async () => {
+    const updateExpense = vi.fn();
+    const container = document.createElement("div");
+    const g = { ...group(), expenses: [expense({ id: "e1", description: "Tacos", amount: 12 })] };
+    renderGroup(container, g, actions({ updateExpense }), "expenses");
+
+    const row = Array.from(container.querySelectorAll(".list-item")).find((r) =>
+      r.textContent?.includes("Tacos"),
+    ) as HTMLElement;
+    const editBtn = rowButton(row, "Edit");
+    expect(editBtn).toBeTruthy();
+    editBtn!.click();
+
+    // The shared form is now shown, prefilled and in edit mode.
+    expect(container.querySelector("h3")?.textContent).toBe("Edit expense");
+    const desc = container.querySelector('input[type="text"]') as HTMLInputElement;
+    expect(desc.value).toBe("Tacos");
+
+    // Change a field and save.
+    desc.value = "Burritos";
+    desc.dispatchEvent(new Event("input"));
+    const form = container.querySelector("form") as HTMLFormElement;
+    form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    await Promise.resolve();
+
+    expect(updateExpense).toHaveBeenCalledTimes(1);
+    const saved = updateExpense.mock.calls[0][0];
+    expect(saved.id).toBe("e1"); // edits the same expense rather than adding a new one
+    expect(saved.description).toBe("Burritos");
+  });
+
+  it("marks a row as edited only when it was updated after creation", () => {
+    const container = document.createElement("div");
+    const g = {
+      ...group(),
+      expenses: [
+        expense({ id: "e1", description: "Alpha", createdAt: 1000, updatedAt: 2000 }), // edited
+        expense({ id: "e2", description: "Beta", createdAt: 1000, updatedAt: 1000 }), // untouched
+      ],
+    };
+    renderGroup(container, g, actions(), "expenses");
+
+    const rowFor = (name: string) =>
+      Array.from(container.querySelectorAll(".list-item")).find((r) =>
+        r.textContent?.includes(name),
+      ) as HTMLElement;
+    expect(rowFor("Alpha").textContent).toMatch(/edited/i);
+    expect(rowFor("Beta").textContent).not.toMatch(/edited/i);
   });
 });
 

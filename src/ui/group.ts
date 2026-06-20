@@ -6,7 +6,7 @@ import { formatMoney, personLinkState, linkSummary, type LinkState } from "./vie
 import { computeShares, round2 } from "../model";
 import { normalizeHandle } from "../venmo";
 import { genId } from "../db";
-import type { Expense, GroupDoc, Person, Settlement } from "../types";
+import type { Expense, ExpenseInput, GroupDoc, Person, Settlement } from "../types";
 
 export interface GroupActions {
   currentUid: string;
@@ -15,7 +15,8 @@ export interface GroupActions {
   /** Link the current user to the person with the given id. */
   linkPerson: (personId: string) => Promise<void>;
   removePerson: (personId: string) => Promise<void>;
-  addExpense: (e: Expense) => Promise<void>;
+  addExpense: (e: ExpenseInput) => Promise<void>;
+  updateExpense: (e: ExpenseInput) => Promise<void>;
   removeExpense: (expenseId: string) => Promise<void>;
   addSettlement: (s: Settlement) => Promise<void>;
   onBack: () => void;
@@ -89,20 +90,27 @@ function renderExpensesTab(body: HTMLElement, group: GroupDoc, actions: GroupAct
   const formHost = el("div", {});
   let formOpen = false;
 
-  const openForm = () => {
+  // `initial` set => editing that expense; omitted => adding a new one.
+  const openForm = (initial?: Expense) => {
     formOpen = true;
     if (group.people.length === 0) {
       mount(formHost, el("div", { class: "banner" }, "Add at least one person on the People tab first."));
       return;
     }
-    renderExpenseForm(formHost, group.people, {
-      onSave: async (expense) => {
-        await actions.addExpense(expense);
-        formOpen = false;
-        mount(formHost);
+    renderExpenseForm(
+      formHost,
+      group.people,
+      {
+        onSave: async (expense) => {
+          if (initial) await actions.updateExpense(expense);
+          else await actions.addExpense(expense);
+          formOpen = false;
+          mount(formHost);
+        },
+        onCancel: () => { formOpen = false; mount(formHost); },
       },
-      onCancel: () => { formOpen = false; mount(formHost); },
-    });
+      initial,
+    );
   };
 
   const list =
@@ -120,12 +128,18 @@ function renderExpensesTab(body: HTMLElement, group: GroupDoc, actions: GroupAct
               const detail = e.split.participants
                 .map((id) => `${personName(group, id)} ${formatMoney(shares[id] ?? 0)}`)
                 .join(" · ");
+              const edited = e.updatedAt != null && e.createdAt != null && e.updatedAt > e.createdAt;
               return el("div", { class: "list-item" }, [
                 el("span", { style: "flex:1" }, [
                   el("strong", {}, `${e.description} — ${formatMoney(e.amount)}`),
-                  el("div", { class: "hint" }, `Paid by ${personName(group, e.paidBy)} · ${e.date}`),
+                  el(
+                    "div",
+                    { class: "hint" },
+                    `Paid by ${personName(group, e.paidBy)} · ${e.date}${edited ? " · edited" : ""}`,
+                  ),
                   el("div", { class: "hint" }, detail),
                 ]),
+                el("button", { class: "btn small", onClick: () => openForm(e) }, "Edit"),
                 el("button", { class: "btn small danger", onClick: async () => { await actions.removeExpense(e.id); } }, "Delete"),
               ]);
             }),

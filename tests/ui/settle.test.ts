@@ -24,6 +24,8 @@ function group(over: Partial<Group> = {}): Group {
         paidBy: "a",
         date: "2026-01-01",
         split: { method: "equal", participants: ["a", "b"], values: {} },
+        createdAt: 0,
+        updatedAt: 0,
       },
     ],
     settlements: [],
@@ -45,6 +47,8 @@ function aliceOwesBob(): Partial<Group> {
         paidBy: "b",
         date: "2026-01-02",
         split: { method: "equal", participants: ["a", "b"], values: {} },
+        createdAt: 0,
+        updatedAt: 0,
       },
     ],
   };
@@ -127,6 +131,8 @@ describe("renderSettle", () => {
           paidBy: "c",
           date: "2026-01-03",
           split: { method: "equal", participants: ["c", "d"], values: {} },
+          createdAt: 0,
+          updatedAt: 0,
         },
       ],
     });

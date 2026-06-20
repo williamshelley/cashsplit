@@ -1,10 +1,10 @@
 import { el, mount } from "./dom";
 import { splitPreview, formatMoney } from "./viewmodel";
 import { genId } from "../db";
-import type { Expense, Person, Split, SplitMethod } from "../types";
+import type { Expense, ExpenseInput, Person, Split, SplitMethod } from "../types";
 
 export interface ExpenseFormHandlers {
-  onSave: (expense: Expense) => void | Promise<void>;
+  onSave: (expense: ExpenseInput) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -15,23 +15,35 @@ const METHOD_LABELS: Record<SplitMethod, string> = {
   shares: "Shares / weights",
 };
 
-/** Render the add-expense form with a live, reconciling split preview. */
+/**
+ * Render the expense form with a live, reconciling split preview. Pass `initial`
+ * to edit an existing expense (prefills every field and keeps its id); omit it to
+ * create a new one.
+ */
 export function renderExpenseForm(
   container: HTMLElement,
   people: Person[],
   handlers: ExpenseFormHandlers,
+  initial?: Expense,
 ): void {
+  const isEdit = initial != null;
+  const today = new Date().toISOString().slice(0, 10);
   const state = {
-    description: "",
-    amount: 0,
-    paidBy: people[0]?.id ?? "",
-    method: "equal" as SplitMethod,
-    participants: new Set(people.map((p) => p.id)),
-    values: {} as Record<string, number>,
+    description: initial?.description ?? "",
+    amount: initial?.amount ?? 0,
+    paidBy: initial?.paidBy ?? people[0]?.id ?? "",
+    method: initial?.split.method ?? ("equal" as SplitMethod),
+    participants: new Set(initial ? initial.split.participants : people.map((p) => p.id)),
+    values: { ...(initial?.split.values ?? {}) } as Record<string, number>,
+    date: initial?.date ?? today,
   };
 
   const previewBox = el("div", { class: "preview" });
-  const saveBtn = el("button", { class: "btn primary", type: "submit" }, "Add expense");
+  const saveBtn = el(
+    "button",
+    { class: "btn primary", type: "submit" },
+    isEdit ? "Save changes" : "Add expense",
+  );
 
   const currentSplit = (): Split => ({
     method: state.method,
@@ -120,14 +132,14 @@ export function renderExpenseForm(
       },
     },
     (Object.keys(METHOD_LABELS) as SplitMethod[]).map((m) =>
-      el("option", { value: m }, METHOD_LABELS[m]),
+      el("option", { value: m, selected: m === state.method }, METHOD_LABELS[m]),
     ),
   );
 
   const paidBySelect = el(
     "select",
     { onChange: (e: Event) => { state.paidBy = (e.target as HTMLSelectElement).value; } },
-    people.map((p) => el("option", { value: p.id }, p.name)),
+    people.map((p) => el("option", { value: p.id, selected: p.id === state.paidBy }, p.name)),
   );
 
   let submitting = false;
@@ -137,12 +149,12 @@ export function renderExpenseForm(
     submitting = true;
     saveBtn.setAttribute("disabled", "true");
     const split = currentSplit();
-    const expense: Expense = {
-      id: genId(),
+    const expense: ExpenseInput = {
+      id: initial?.id ?? genId(),
       description: state.description.trim(),
       amount: state.amount,
       paidBy: state.paidBy,
-      date: new Date().toISOString().slice(0, 10),
+      date: state.date,
       split,
     };
     try {
@@ -159,12 +171,20 @@ export function renderExpenseForm(
     el("input", {
       type: "text",
       placeholder: "e.g. Dinner at Luigi's",
+      value: state.description,
       onInput: (e: Event) => { state.description = (e.target as HTMLInputElement).value; refreshPreview(); },
     }),
     el("label", {}, "Amount ($)"),
     el("input", {
       type: "number", step: "0.01", min: "0", placeholder: "0.00",
+      value: state.amount > 0 ? String(state.amount) : "",
       onInput: (e: Event) => { state.amount = Number((e.target as HTMLInputElement).value) || 0; refreshPreview(); },
+    }),
+    el("label", {}, "Date"),
+    el("input", {
+      type: "date",
+      value: state.date,
+      onInput: (e: Event) => { state.date = (e.target as HTMLInputElement).value; },
     }),
     el("label", {}, "Paid by"),
     paidBySelect,
@@ -180,7 +200,10 @@ export function renderExpenseForm(
     ]),
   ]);
 
-  mount(container, el("div", { class: "card" }, [el("h3", {}, "Add expense"), form]));
+  mount(
+    container,
+    el("div", { class: "card" }, [el("h3", {}, isEdit ? "Edit expense" : "Add expense"), form]),
+  );
   renderValueInputs();
   refreshPreview();
 }

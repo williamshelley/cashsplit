@@ -11,7 +11,7 @@ import {
   type Firestore,
   type Unsubscribe,
 } from "firebase/firestore";
-import type { Expense, Group, GroupDoc, Person, Settlement } from "./types";
+import type { Expense, ExpenseInput, Group, GroupDoc, Person, Settlement } from "./types";
 
 const GROUPS = "groups";
 
@@ -108,8 +108,27 @@ export async function removePerson(db: Firestore, id: string, personId: string):
   });
 }
 
-export async function addExpense(db: Firestore, id: string, expense: Expense): Promise<void> {
-  await updateDoc(doc(db, GROUPS, id), { expenses: arrayUnion(expense), ...touch() });
+export async function addExpense(db: Firestore, id: string, expense: ExpenseInput): Promise<void> {
+  const now = Date.now();
+  const stamped: Expense = { ...expense, createdAt: now, updatedAt: now };
+  await updateDoc(doc(db, GROUPS, id), { expenses: arrayUnion(stamped), ...touch() });
+}
+
+/**
+ * Read-modify-write a group's `expenses`, replacing the expense with the same id.
+ * Preserves the stored `createdAt` and bumps `updatedAt`; a no-op if no id matches.
+ */
+export async function updateExpense(db: Firestore, id: string, expense: ExpenseInput): Promise<void> {
+  const ref = doc(db, GROUPS, id);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data() as Group;
+    const now = Date.now();
+    const expenses = data.expenses.map((e) =>
+      e.id === expense.id ? { ...expense, createdAt: e.createdAt ?? now, updatedAt: now } : e,
+    );
+    tx.update(ref, { expenses, ...touch() });
+  });
 }
 
 export async function removeExpense(db: Firestore, id: string, expenseId: string): Promise<void> {

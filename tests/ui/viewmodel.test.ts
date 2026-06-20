@@ -85,6 +85,8 @@ describe("settleRows", () => {
           paidBy: "a",
           date: "2026-01-01",
           split: { method: "equal", participants: ["a", "b", "c"], values: {} },
+          createdAt: 0,
+          updatedAt: 0,
         },
       ],
     });
@@ -110,6 +112,8 @@ describe("settleRows", () => {
           paidBy: "b",
           date: "2026-01-01",
           split: { method: "equal", participants: ["b", "c"], values: {} },
+          createdAt: 0,
+          updatedAt: 0,
         },
       ],
     });
@@ -169,6 +173,8 @@ describe("balanceSummary", () => {
           paidBy: "a",
           date: "2026-01-01",
           split: { method: "equal", participants: ["a", "b", "c"], values: {} },
+          createdAt: 0,
+          updatedAt: 0,
         },
       ],
     });

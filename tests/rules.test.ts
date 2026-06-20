@@ -167,6 +167,29 @@ describe("update — privilege boundaries", () => {
       }),
     );
   });
+
+  it("a member can edit an existing expense in place", async () => {
+    // Seed g1 with an expense, then have a member rewrite it with a new amount/date.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(
+        doc(ctx.firestore(), "groups/g1"),
+        baseGroup({
+          memberUids: ["alice", "bob"],
+          expenses: [
+            { id: "e1", description: "Cab", amount: 30, paidBy: "p", date: "2026-01-01", split: {}, createdAt: 1, updatedAt: 1 },
+          ],
+        }),
+      );
+    });
+    await assertSucceeds(
+      updateDoc(doc(verified("bob"), "groups/g1"), {
+        expenses: [
+          { id: "e1", description: "Cab", amount: 42, paidBy: "p", date: "2026-02-02", split: {}, createdAt: 1, updatedAt: 2 },
+        ],
+        updatedAt: 2,
+      }),
+    );
+  });
 });
 
 describe("delete", () => {

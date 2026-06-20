@@ -1,4 +1,4 @@
-import type { Balance, Expense, Group, Person, Split, Transfer } from "./types";
+import type { Balance, ExpenseInput, Group, Person, Split, Transfer } from "./types";
 
 /** Round to 2 decimal places (cents), avoiding binary float drift. */
 export function round2(n: number): number {
@@ -95,7 +95,7 @@ function distributeCents(totalCents: number, ids: string[], weights: number[]): 
  * Per-person owed amount for a single expense, keyed by Person.id. Only
  * participants appear in the result.
  */
-export function computeShares(expense: Expense, _people: Person[]): Record<string, number> {
+export function computeShares(expense: ExpenseInput, _people: Person[]): Record<string, number> {
   const { amount, split } = expense;
   const { method, participants, values } = split;
   const totalCents = toCents(amount);
