@@ -80,6 +80,24 @@ export async function updatePerson(db: Firestore, id: string, person: Person): P
   });
 }
 
+/**
+ * Link `uid` to the person with `personId`, clearing it from any other person
+ * so the user is linked to exactly one person (covers re-claiming and takeover).
+ */
+export async function linkPersonToUser(db: Firestore, id: string, personId: string, uid: string): Promise<void> {
+  const ref = doc(db, GROUPS, id);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data() as Group;
+    const people = data.people.map((p) => {
+      if (p.id === personId) return { ...p, uid };
+      if (p.uid === uid) return { ...p, uid: null };
+      return p;
+    });
+    tx.update(ref, { people, ...touch() });
+  });
+}
+
 export async function removePerson(db: Firestore, id: string, personId: string): Promise<void> {
   const ref = doc(db, GROUPS, id);
   await runTransaction(db, async (tx) => {

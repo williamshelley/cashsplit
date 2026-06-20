@@ -8,6 +8,7 @@ import {
   createGroup,
   joinGroup,
   addPerson,
+  linkPersonToUser,
   removePerson,
   addExpense,
   removeExpense,
@@ -101,6 +102,25 @@ describe("membership + people", () => {
     expect((await read(id)).people.map((p) => p.name)).toContain("Bob");
     await removePerson(db, id, "p2");
     expect((await read(id)).people.map((p) => p.name)).not.toContain("Bob");
+  });
+
+  it("linkPersonToUser links the caller to an unlinked person", async () => {
+    const id = await createGroup(db, { name: "T", ownerUid: "uA", ownerName: "A" });
+    await addPerson(db, id, person({ id: "p2", name: "Bob", uid: null }));
+    await linkPersonToUser(db, id, "p2", "uB");
+    const people = (await read(id)).people;
+    expect(people.find((p) => p.id === "p2")?.uid).toBe("uB");
+  });
+
+  it("linkPersonToUser clears the caller's uid from any other person (move/takeover)", async () => {
+    const id = await createGroup(db, { name: "T", ownerUid: "uA", ownerName: "A" });
+    // uB is currently linked to Bob; takes over Carol (already linked to uC).
+    await addPerson(db, id, person({ id: "p2", name: "Bob", uid: "uB" }));
+    await addPerson(db, id, person({ id: "p3", name: "Carol", uid: "uC" }));
+    await linkPersonToUser(db, id, "p3", "uB");
+    const people = (await read(id)).people;
+    expect(people.find((p) => p.id === "p3")?.uid).toBe("uB"); // moved to Carol
+    expect(people.find((p) => p.id === "p2")?.uid).toBe(null); // unlinked from Bob
   });
 });
 

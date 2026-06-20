@@ -1,4 +1,5 @@
 import { el, mount } from "./dom";
+import { confirmModal } from "./modal";
 import { renderSettle } from "./settle";
 import { renderExpenseForm } from "./expenseForm";
 import { formatMoney } from "./viewmodel";
@@ -11,6 +12,8 @@ export interface GroupActions {
   currentUid: string;
   addPerson: (p: Person) => Promise<void>;
   updatePerson: (p: Person) => Promise<void>;
+  /** Link the current user to the person with the given id. */
+  linkPerson: (personId: string) => Promise<void>;
   removePerson: (personId: string) => Promise<void>;
   addExpense: (e: Expense) => Promise<void>;
   removeExpense: (expenseId: string) => Promise<void>;
@@ -147,6 +150,31 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
     venmoInput.value = "";
   };
 
+  const currentPerson = group.people.find((p) => p.uid === actions.currentUid);
+
+  const confirmLink = (p: Person) => {
+    const message: (Node | string)[] = [
+      p.uid
+        ? el("p", {}, [
+            el("strong", {}, p.name),
+            " is already linked to another account. Connecting will move that link to you.",
+          ])
+        : el("p", {}, ["Connect your account to ", el("strong", {}, p.name), "?"]),
+    ];
+    if (currentPerson && currentPerson.id !== p.id) {
+      message.push(
+        el("p", { class: "hint" }, ["You'll be unlinked from ", el("strong", {}, currentPerson.name), "."]),
+      );
+    }
+    confirmModal({
+      title: "Is this you?",
+      message,
+      confirmLabel: "This is me",
+      danger: p.uid !== null,
+      onConfirm: () => actions.linkPerson(p.id),
+    });
+  };
+
   const peopleList = el(
     "div",
     { class: "card" },
@@ -167,6 +195,10 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
             el("strong", {}, p.name),
             p.uid === actions.currentUid ? el("span", { class: "hint" }, " (you)") : null,
           ]),
+          // Let a member claim any person but the one they're already linked to.
+          p.uid === actions.currentUid
+            ? null
+            : el("button", { class: "btn small", onClick: () => confirmLink(p) }, "This is me"),
           venmoField,
           el("button", { class: "btn small danger", onClick: async () => { await actions.removePerson(p.id); } }, "Remove"),
         ]);
@@ -177,7 +209,7 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
   const claimBanner = linked
     ? null
     : el("div", { class: "banner" }, [
-        "You're a member but not linked to anyone in this group. Add yourself below (your name links to your account).",
+        "You're a member but not linked to anyone yet. Find your name below and tap \"This is me\", or add yourself.",
       ]);
 
   mount(

@@ -150,6 +150,7 @@ async function bootstrap() {
       currentUid: uid,
       addPerson: (p) => dbApi.addPerson(db, id, p),
       updatePerson: (p) => dbApi.updatePerson(db, id, p),
+      linkPerson: (pid) => dbApi.linkPersonToUser(db, id, pid, uid),
       removePerson: (pid) => dbApi.removePerson(db, id, pid),
       addExpense: (e) => dbApi.addExpense(db, id, e),
       removeExpense: (eid) => dbApi.removeExpense(db, id, eid),
