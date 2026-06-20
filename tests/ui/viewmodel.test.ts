@@ -5,6 +5,8 @@ import {
   settleRows,
   balanceSummary,
   formatMoney,
+  personLinkState,
+  linkSummary,
 } from "../../src/ui/viewmodel";
 import type { Group, Person } from "../../src/types";
 
@@ -118,6 +120,45 @@ describe("settleRows", () => {
     const rows = settleRows(g);
     const row = rows.find((r) => r.toId === "b")!;
     expect(row.venmoHref).toBeNull();
+  });
+});
+
+describe("personLinkState", () => {
+  const p = (uid: string | null) => ({ id: "x", name: "X", venmo: null, uid });
+  it("returns 'you' when the person is linked to the current account", () => {
+    expect(personLinkState(p("uA"), "uA")).toBe("you");
+  });
+  it("returns 'linked' when the person is linked to a different account", () => {
+    expect(personLinkState(p("uC"), "uA")).toBe("linked");
+  });
+  it("returns 'unlinked' when the person has no account", () => {
+    expect(personLinkState(p(null), "uA")).toBe("unlinked");
+  });
+  it("never reports 'you' when there is no current account", () => {
+    expect(personLinkState(p("uC"), null)).toBe("linked");
+    expect(personLinkState(p(null), null)).toBe("unlinked");
+  });
+});
+
+describe("linkSummary", () => {
+  it("counts people linked to an account vs. total (mixed)", () => {
+    // module `people`: Alice uA, Bob uB, Carol null => 2 of 3
+    expect(linkSummary(group())).toEqual({ linked: 2, total: 3 });
+  });
+  it("counts all linked", () => {
+    const g = group({ people: [
+      { id: "a", name: "A", venmo: null, uid: "uA" },
+      { id: "b", name: "B", venmo: null, uid: "uB" },
+    ] });
+    expect(linkSummary(g)).toEqual({ linked: 2, total: 2 });
+  });
+  it("counts none linked", () => {
+    const g = group({ people: [{ id: "a", name: "A", venmo: null, uid: null }] });
+    expect(linkSummary(g)).toEqual({ linked: 0, total: 1 });
+  });
+  it("handles an empty group", () => {
+    const g = group({ people: [] });
+    expect(linkSummary(g)).toEqual({ linked: 0, total: 0 });
   });
 });
 

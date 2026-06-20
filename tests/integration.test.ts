@@ -127,33 +127,21 @@ describe("CashSplit end-to-end (emulator)", () => {
 
     // 7. Render the Settle-up UI from the edited group and confirm balances moved.
     const container = document.createElement("div");
-    let markedPaid = false;
-    renderSettle(container, group, owner.uid, {
-      onMarkPaid: async (row) => {
-        markedPaid = true;
-        await dbApi.addSettlement(db, groupId, {
-          id: "s1",
-          from: row.fromId,
-          to: row.toId,
-          amount: row.amount,
-          date: "2026-06-20",
-        });
-      },
-    });
+    renderSettle(container, group, owner.uid, { onMarkPaid: async () => {} });
 
-    // The Pay-with-Venmo link is pre-filled with the recomputed $25 owed.
+    // 7. The Pay-with-Venmo link is pre-filled with the recomputed $25 owed
+    //    (owner is the debtor after the edit bumped the cab to $50).
     const link = container.querySelector("a") as HTMLAnchorElement;
     expect(link.href).toContain("venmo.com/bob-v");
     expect(link.href).toContain("amount=25.00");
 
-    // 8. Clicking "Mark paid" records a settlement that clears the balance.
-    const payBtn = Array.from(container.querySelectorAll("button")).find((b) =>
+    // 8. Only the person who is owed can mark a debt paid. The owner owes
+    //    name-only Bob, who has no account to confirm it, so the owner (the
+    //    debtor) sees no "Mark paid" button — the debt stays open.
+    const markPaidBtn = Array.from(container.querySelectorAll("button")).find((b) =>
       /mark paid/i.test(b.textContent ?? ""),
-    ) as HTMLButtonElement;
-    payBtn.click();
-    await new Promise((r) => setTimeout(r, 200));
-    expect(markedPaid).toBe(true);
-    expect((await readGroup(groupId)).settlements).toHaveLength(1);
+    );
+    expect(markPaidBtn).toBeUndefined();
 
     // 9. A second user signs up, verifies, and joins via the invite path.
     await authApi.logOut(auth);

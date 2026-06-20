@@ -2,7 +2,7 @@ import { el, mount } from "./dom";
 import { confirmModal } from "./modal";
 import { renderSettle } from "./settle";
 import { renderExpenseForm } from "./expenseForm";
-import { formatMoney } from "./viewmodel";
+import { formatMoney, personLinkState, linkSummary, type LinkState } from "./viewmodel";
 import { computeShares, round2 } from "../model";
 import { normalizeHandle } from "../venmo";
 import { genId } from "../db";
@@ -73,6 +73,17 @@ export function renderGroup(
 
 function personName(group: GroupDoc, id: string): string {
   return group.people.find((p) => p.id === id)?.name ?? "Unknown";
+}
+
+const LINK_LABEL: Record<LinkState, string> = {
+  you: "You",
+  linked: "Linked",
+  unlinked: "Not linked",
+};
+
+/** A small status pill showing whether a person is linked to an account. */
+function linkBadge(state: LinkState): HTMLElement {
+  return el("span", { class: `badge badge-${state}` }, LINK_LABEL[state]);
 }
 
 function renderExpensesTab(body: HTMLElement, group: GroupDoc, actions: GroupActions) {
@@ -189,11 +200,13 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
     });
   };
 
+  const summary = linkSummary(group);
   const peopleList = el(
     "div",
     { class: "card" },
     [
       el("h3", {}, "People") as Node,
+      el("div", { class: "hint" }, `${summary.linked} of ${summary.total} linked`) as Node,
       ...group.people.map((p) => {
         const venmoField = el("input", {
           type: "text",
@@ -207,7 +220,7 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
         return el("div", { class: "list-item" }, [
           el("span", { style: "flex:1" }, [
             el("strong", {}, p.name),
-            p.uid === actions.currentUid ? el("span", { class: "hint" }, " (you)") : null,
+            linkBadge(personLinkState(p, actions.currentUid)),
           ]),
           // Let a member claim any person but the one they're already linked to.
           p.uid === actions.currentUid

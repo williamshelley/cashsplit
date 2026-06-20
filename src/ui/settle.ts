@@ -10,7 +10,9 @@ export interface SettleHandlers {
  * Render the "Settle up" view: balances summary + who-owes-whom with actions.
  *
  * `currentUid` is the Firebase uid of the logged-in user; it gates the
- * "Pay with Venmo" action so it only appears on rows where that user owes.
+ * per-row actions: "Pay with Venmo" appears only on rows where that user owes
+ * (the debtor), and "Mark paid" appears only on rows where that user is owed
+ * (the creditor) — only the person owed can confirm a debt was paid.
  */
 export function renderSettle(
   container: HTMLElement,
@@ -76,21 +78,28 @@ export function renderSettle(
               );
             }
           }
-          actions.push(
-            el("button", {
-              class: "btn",
-              onClick: async (ev: Event) => {
-                const btn = ev.currentTarget as HTMLButtonElement;
-                if (btn.hasAttribute("disabled")) return; // ignore double-clicks while in flight
-                btn.setAttribute("disabled", "true");
-                try {
-                  await handlers.onMarkPaid(row);
-                } catch {
-                  btn.removeAttribute("disabled");
-                }
-              },
-            }, "Mark paid"),
-          );
+          // Only the person who is owed (the creditor) can confirm a debt was
+          // paid, so "Mark paid" appears only on rows where the current user is
+          // the creditor. A name-only creditor (uid: null) never matches, so a
+          // debt owed to someone without an app account can't be marked paid
+          // until they join and link their identity.
+          if (row.toId === currentPersonId) {
+            actions.push(
+              el("button", {
+                class: "btn",
+                onClick: async (ev: Event) => {
+                  const btn = ev.currentTarget as HTMLButtonElement;
+                  if (btn.hasAttribute("disabled")) return; // ignore double-clicks while in flight
+                  btn.setAttribute("disabled", "true");
+                  try {
+                    await handlers.onMarkPaid(row);
+                  } catch {
+                    btn.removeAttribute("disabled");
+                  }
+                },
+              }, "Mark paid"),
+            );
+          }
           return el("div", { class: "settle-row" }, [
             el("span", { class: "settle-desc" }, `${row.fromName} → ${row.toName}`),
             el("span", { class: "settle-amt" }, formatMoney(row.amount)),

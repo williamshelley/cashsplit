@@ -107,6 +107,20 @@ ul { list-style: none; padding: 0; margin: 0; }
 }
 .list-item:last-child { border-bottom: none; }
 
+.badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  vertical-align: middle;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.badge-you { background: var(--brand); border-color: var(--brand); color: #fff; }
+.badge-linked { border-color: var(--brand-2); color: var(--brand-2); }
+.badge-unlinked { color: var(--muted); }
+
 .balances li {
   display: flex;
   justify-content: space-between;
