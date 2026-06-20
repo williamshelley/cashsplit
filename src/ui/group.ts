@@ -201,7 +201,7 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
 }
 
 function renderSettleTab(body: HTMLElement, group: GroupDoc, actions: GroupActions) {
-  renderSettle(body, group, {
+  renderSettle(body, group, actions.currentUid, {
     onMarkPaid: async (row) => {
       await actions.addSettlement({
         id: genId(),

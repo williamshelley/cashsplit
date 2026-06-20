@@ -106,7 +106,7 @@ describe("CashSplit end-to-end (emulator)", () => {
 
     const container = document.createElement("div");
     let markedPaid = false;
-    renderSettle(container, group, {
+    renderSettle(container, group, owner.uid, {
       onMarkPaid: async (row) => {
         markedPaid = true;
         await dbApi.addSettlement(db, groupId, {

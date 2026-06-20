@@ -6,10 +6,24 @@ export interface SettleHandlers {
   onMarkPaid: (row: SettleRow) => void;
 }
 
-/** Render the "Settle up" view: balances summary + who-owes-whom with actions. */
-export function renderSettle(container: HTMLElement, group: Group, handlers: SettleHandlers): void {
+/**
+ * Render the "Settle up" view: balances summary + who-owes-whom with actions.
+ *
+ * `currentUid` is the Firebase uid of the logged-in user; it gates the
+ * "Pay with Venmo" action so it only appears on rows where that user owes.
+ */
+export function renderSettle(
+  container: HTMLElement,
+  group: Group,
+  currentUid: string,
+  handlers: SettleHandlers,
+): void {
   const rows = settleRows(group);
   const balances = balanceSummary(group);
+
+  // The logged-in user's Person.id in this group, or null if they aren't a
+  // linked member. Used to show the Venmo action only on debts they owe.
+  const currentPersonId = group.people.find((p) => p.uid === currentUid)?.id ?? null;
 
   const summary = el("div", { class: "card" }, [
     el("h3", {}, "Balances"),
@@ -44,16 +58,23 @@ export function renderSettle(container: HTMLElement, group: Group, handlers: Set
         el("h3", {}, "Who pays whom") as Node,
         ...rows.map((row) => {
           const actions: Node[] = [];
-          if (row.venmoHref) {
-            actions.push(
-              el(
-                "a",
-                { class: "btn venmo", href: row.venmoHref, target: "_blank", rel: "noopener" },
-                "Pay with Venmo",
-              ),
-            );
-          } else {
-            actions.push(el("span", { class: "hint" }, `Add ${row.toName}'s Venmo to enable payment`));
+          // Only the debtor can pay a debt from their own Venmo, so the Venmo
+          // action (and its "add a handle" hint) appears only on the current
+          // user's own rows.
+          if (row.fromId === currentPersonId) {
+            if (row.venmoHref) {
+              actions.push(
+                el(
+                  "a",
+                  { class: "btn venmo", href: row.venmoHref, target: "_blank", rel: "noopener" },
+                  "Pay with Venmo",
+                ),
+              );
+            } else {
+              actions.push(
+                el("span", { class: "hint" }, `Add ${row.toName}'s Venmo to enable payment`),
+              );
+            }
           }
           actions.push(
             el("button", {
