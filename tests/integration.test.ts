@@ -100,10 +100,32 @@ describe("CashSplit end-to-end (emulator)", () => {
       split: { method: "equal", participants: [ownerPersonId, "bob"], values: {} },
     });
 
-    // 6. Read it back live and render the Settle-up UI from the real group.
-    const group = await readGroup(groupId);
-    expect(group.expenses).toHaveLength(1);
+    // 6. Read it back live; it has the one expense we added.
+    const afterAdd = await readGroup(groupId);
+    expect(afterAdd.expenses).toHaveLength(1);
+    const created = afterAdd.expenses[0];
+    expect(created.createdAt).toBe(created.updatedAt); // freshly added => unedited
 
+    // 6b. EDIT that expense through the real db path: bump the amount and date.
+    // createdAt must be preserved, updatedAt must advance, and balances recompute.
+    await new Promise((r) => setTimeout(r, 20)); // let the clock advance a tick
+    await dbApi.updateExpense(db, groupId, {
+      id: "exp1",
+      description: "Cab (corrected)",
+      amount: 50, // Bob paid 50, split equally => owner now owes Bob 25
+      paidBy: "bob",
+      date: "2026-06-20",
+      split: { method: "equal", participants: [ownerPersonId, "bob"], values: {} },
+    });
+    const group = await readGroup(groupId);
+    const edited = group.expenses.find((e) => e.id === "exp1")!;
+    expect(edited.amount).toBe(50);
+    expect(edited.description).toBe("Cab (corrected)");
+    expect(edited.date).toBe("2026-06-20");
+    expect(edited.createdAt).toBe(created.createdAt); // preserved across the edit
+    expect(edited.updatedAt).toBeGreaterThan(created.updatedAt); // bumped on edit
+
+    // 7. Render the Settle-up UI from the edited group and confirm balances moved.
     const container = document.createElement("div");
     let markedPaid = false;
     renderSettle(container, group, owner.uid, {
@@ -114,15 +136,15 @@ describe("CashSplit end-to-end (emulator)", () => {
           from: row.fromId,
           to: row.toId,
           amount: row.amount,
-          date: "2026-06-19",
+          date: "2026-06-20",
         });
       },
     });
 
-    // 7. The Pay-with-Venmo link is present and pre-filled.
+    // The Pay-with-Venmo link is pre-filled with the recomputed $25 owed.
     const link = container.querySelector("a") as HTMLAnchorElement;
     expect(link.href).toContain("venmo.com/bob-v");
-    expect(link.href).toContain("amount=15.00");
+    expect(link.href).toContain("amount=25.00");
 
     // 8. Clicking "Mark paid" records a settlement that clears the balance.
     const payBtn = Array.from(container.querySelectorAll("button")).find((b) =>

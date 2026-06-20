@@ -11,13 +11,14 @@ import {
   linkPersonToUser,
   removePerson,
   addExpense,
+  updateExpense,
   removeExpense,
   addSettlement,
   subscribeGroup,
   subscribeMyGroups,
   renameGroup,
 } from "../src/db";
-import type { Expense, GroupDoc, Person, Settlement } from "../src/types";
+import type { ExpenseInput, GroupDoc, Person, Settlement } from "../src/types";
 
 let testEnv: RulesTestEnvironment;
 let db: Firestore;
@@ -56,7 +57,7 @@ const person = (over: Partial<Person> = {}): Person => ({
   ...over,
 });
 
-const expense = (over: Partial<Expense> = {}): Expense => ({
+const expense = (over: Partial<ExpenseInput> = {}): ExpenseInput => ({
   id: "e1",
   description: "Dinner",
   amount: 30,
@@ -131,6 +132,51 @@ describe("expenses + settlements", () => {
     expect((await read(id)).expenses.map((e) => e.description)).toContain("Tacos");
     await removeExpense(db, id, "x");
     expect((await read(id)).expenses).toHaveLength(0);
+  });
+
+  it("addExpense stamps createdAt and updatedAt", async () => {
+    const id = await createGroup(db, { name: "T", ownerUid: "uA", ownerName: "A" });
+    await addExpense(db, id, expense({ id: "x" }));
+    const [e] = (await read(id)).expenses;
+    expect(typeof e.createdAt).toBe("number");
+    expect(typeof e.updatedAt).toBe("number");
+    expect(e.createdAt).toBe(e.updatedAt); // a brand-new expense is unedited
+  });
+
+  it("updateExpense edits fields, preserves createdAt, and bumps updatedAt", async () => {
+    const id = await createGroup(db, { name: "T", ownerUid: "uA", ownerName: "A" });
+    await addExpense(db, id, expense({ id: "x", description: "Tacos", amount: 30 }));
+    const before = (await read(id)).expenses.find((e) => e.id === "x")!;
+
+    await new Promise((r) => setTimeout(r, 20)); // ensure the clock advances a tick
+    await updateExpense(
+      db,
+      id,
+      expense({
+        id: "x",
+        description: "Burritos",
+        amount: 42,
+        date: "2026-02-02",
+        split: { method: "exact", participants: ["p1"], values: { p1: 42 } },
+      }),
+    );
+
+    const after = (await read(id)).expenses.find((e) => e.id === "x")!;
+    expect(after.description).toBe("Burritos");
+    expect(after.amount).toBe(42);
+    expect(after.date).toBe("2026-02-02");
+    expect(after.split.method).toBe("exact");
+    expect(after.createdAt).toBe(before.createdAt); // preserved across the edit
+    expect(after.updatedAt).toBeGreaterThan(before.updatedAt); // bumped on edit
+  });
+
+  it("updateExpense ignores an unknown expense id", async () => {
+    const id = await createGroup(db, { name: "T", ownerUid: "uA", ownerName: "A" });
+    await addExpense(db, id, expense({ id: "x", description: "Keep" }));
+    await updateExpense(db, id, expense({ id: "nope", description: "Ghost" }));
+    const expenses = (await read(id)).expenses;
+    expect(expenses).toHaveLength(1);
+    expect(expenses[0].description).toBe("Keep");
   });
 
   it("addSettlement appends a settlement", async () => {

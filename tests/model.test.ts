@@ -20,6 +20,8 @@ function expense(over: Partial<Expense> = {}): Expense {
     paidBy: "a",
     date: "2026-01-01",
     split: { method: "equal", participants: ["a", "b", "c"], values: {} },
+    createdAt: 0,
+    updatedAt: 0,
     ...over,
   };
 }

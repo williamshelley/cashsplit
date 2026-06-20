@@ -153,6 +153,7 @@ async function bootstrap() {
       linkPerson: (pid) => dbApi.linkPersonToUser(db, id, pid, uid),
       removePerson: (pid) => dbApi.removePerson(db, id, pid),
       addExpense: (e) => dbApi.addExpense(db, id, e),
+      updateExpense: (e) => dbApi.updateExpense(db, id, e),
       removeExpense: (eid) => dbApi.removeExpense(db, id, eid),
       addSettlement: (s) => dbApi.addSettlement(db, id, s),
       onBack: () => navigate("#/"),

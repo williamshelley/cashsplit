@@ -30,10 +30,20 @@ export interface Expense {
   amount: number;
   /** Person.id of who paid. */
   paidBy: string;
-  /** ISO date string. */
+  /** ISO date string (the date the expense occurred; user-editable). */
   date: string;
   split: Split;
+  /** Epoch ms when the expense was first created. */
+  createdAt: number;
+  /** Epoch ms when the expense was last edited (equals createdAt when unedited). */
+  updatedAt: number;
 }
+
+/**
+ * The user-supplied fields of an expense. `createdAt`/`updatedAt` are bookkeeping
+ * timestamps owned by the data layer (db.ts), so callers never set them.
+ */
+export type ExpenseInput = Omit<Expense, "createdAt" | "updatedAt">;
 
 export interface Settlement {
   id: string;
