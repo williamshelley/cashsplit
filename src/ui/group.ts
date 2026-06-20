@@ -1,5 +1,5 @@
 import { el, mount } from "./dom";
-import { confirmModal } from "./modal";
+import { confirmModal, promptModal } from "./modal";
 import { renderSettle } from "./settle";
 import { renderExpenseForm } from "./expenseForm";
 import { formatMoney, personLinkState, linkSummary, type LinkState } from "./viewmodel";
@@ -13,6 +13,8 @@ export interface GroupActions {
   addPerson: (p: Person) => Promise<void>;
   /** Update the Venmo handle of the current user's own linked person. */
   updateOwnVenmo: (venmo: string | null) => Promise<void>;
+  /** Update the display name of the current user's own linked person. */
+  updateOwnName: (name: string) => Promise<void>;
   /** Link the current user to the person with the given id. */
   linkPerson: (personId: string) => Promise<void>;
   removePerson: (personId: string) => Promise<void>;
@@ -227,6 +229,24 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
           el("span", { style: "flex:1" }, [
             el("strong", {}, p.name),
             linkBadge(personLinkState(p, actions.currentUid)),
+            // Only the linked account may rename its own person.
+            isMe
+              ? el(
+                  "button",
+                  {
+                    class: "btn small",
+                    style: "margin-left:8px",
+                    onClick: () =>
+                      promptModal({
+                        title: "Edit your name",
+                        initialValue: p.name,
+                        confirmLabel: "Save",
+                        onSubmit: (name) => actions.updateOwnName(name),
+                      }),
+                  },
+                  "Edit",
+                )
+              : null,
           ]),
           // Let a member claim any person but the one they're already linked to.
           p.uid === actions.currentUid

@@ -150,6 +150,7 @@ async function bootstrap() {
       currentUid: uid,
       addPerson: (p) => dbApi.addPerson(db, id, p),
       updateOwnVenmo: (venmo) => dbApi.updateOwnVenmo(db, id, uid, venmo),
+      updateOwnName: (name) => dbApi.updateOwnName(db, id, uid, name),
       linkPerson: (pid) => dbApi.linkPersonToUser(db, id, pid, uid),
       removePerson: (pid) => dbApi.removePerson(db, id, pid),
       addExpense: (e) => dbApi.addExpense(db, id, e),

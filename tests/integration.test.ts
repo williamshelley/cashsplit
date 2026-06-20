@@ -99,6 +99,14 @@ describe("CashSplit end-to-end (emulator)", () => {
     expect(afterVenmo.people.find((p) => p.uid === owner.uid)?.venmo).toBe("owner-v");
     expect(afterVenmo.people.find((p) => p.id === "bob")?.venmo).toBe("bob-v");
 
+    // 5c. The owner renames their OWN person via updateOwnName. Like Venmo, it
+    //     only touches the person linked to their uid; name-only Bob is untouched.
+    const bobNameBefore = afterVenmo.people.find((p) => p.id === "bob")?.name;
+    await dbApi.updateOwnName(db, groupId, owner.uid, "Captain Owner");
+    const afterRename = await readGroup(groupId);
+    expect(afterRename.people.find((p) => p.uid === owner.uid)?.name).toBe("Captain Owner");
+    expect(afterRename.people.find((p) => p.id === "bob")?.name).toBe(bobNameBefore);
+
     await dbApi.addExpense(db, groupId, {
       id: "exp1",
       description: "Cab",
