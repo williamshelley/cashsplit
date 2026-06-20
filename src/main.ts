@@ -7,6 +7,7 @@ import { el, mount } from "./ui/dom";
 import { renderAuth, renderVerify } from "./ui/auth";
 import { renderHome } from "./ui/home";
 import { renderGroup, type GroupActions, type GroupTab } from "./ui/group";
+import { groupExpensesToCsv, csvFilename, downloadCsv } from "./export";
 import * as dbApi from "./db";
 import * as authApi from "./auth";
 
@@ -209,6 +210,7 @@ async function bootstrap() {
       deleteGroup: async () => { await dbApi.deleteGroup(db, id); navigate("#/"); },
       onBack: () => navigate("#/"),
       onCopyLink: () => navigator.clipboard.writeText(window.location.href),
+      onExport: () => { if (latest) downloadCsv(csvFilename(latest), groupExpensesToCsv(latest)); },
       onTabChange: (t) => { tab = t; draw(); },
     };
     const draw = () => { if (latest) renderGroup(appEl, latest, actions, tab); };

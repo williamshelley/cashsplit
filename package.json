@@ -10,9 +10,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
-    "test:unit": "vitest run tests/model.test.ts tests/venmo.test.ts tests/ui",
+    "test:unit": "vitest run tests/model.test.ts tests/venmo.test.ts tests/export.test.ts tests/ui",
     "test:emulator": "firebase emulators:exec --only firestore,auth \"vitest run --no-file-parallelism tests/rules.test.ts tests/db.test.ts tests/auth.test.ts tests/integration.test.ts\"",
-    "test:run": "vitest run tests/model.test.ts tests/venmo.test.ts tests/ui && firebase emulators:exec --only firestore,auth \"vitest run --no-file-parallelism tests/rules.test.ts tests/db.test.ts tests/auth.test.ts tests/integration.test.ts\""
+    "test:run": "vitest run tests/model.test.ts tests/venmo.test.ts tests/export.test.ts tests/ui && firebase emulators:exec --only firestore,auth \"vitest run --no-file-parallelism tests/rules.test.ts tests/db.test.ts tests/auth.test.ts tests/integration.test.ts\""
   },
   "dependencies": {
     "firebase": "^10.14.1"

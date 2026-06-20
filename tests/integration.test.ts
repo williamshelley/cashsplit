@@ -14,6 +14,7 @@ import { connectFirestoreEmulator, doc, getDoc, getFirestore, type Firestore } f
 import * as authApi from "../src/auth";
 import * as dbApi from "../src/db";
 import { renderSettle } from "../src/ui/settle";
+import { groupExpensesToCsv } from "../src/export";
 import type { GroupDoc } from "../src/types";
 
 // Match the emulator's configured project (firebase.json singleProjectMode) so
@@ -168,5 +169,27 @@ describe("CashSplit end-to-end (emulator)", () => {
     const joined = await readGroup(groupId); // a member can now read it
     expect(joined.memberUids).toContain(friend.uid);
     expect(joined.name).toBe("Ski Trip");
+
+    // 10. Record a settlement, then export the live group to CSV through the
+    //     real export path. The CSV reflects the recorded expense and settlement,
+    //     with person ids resolved to names.
+    await dbApi.addSettlement(db, groupId, {
+      id: "set1",
+      from: ownerPersonId, // Captain Owner pays Bob back
+      to: "bob",
+      amount: 25,
+      date: "2026-06-21",
+    });
+    const exported = await readGroup(groupId);
+    const csv = groupExpensesToCsv(exported);
+
+    // Expenses section: one row for the corrected $50 cab Bob paid, split evenly,
+    // plus a TOTAL row. People are columns in creation order (owner, then Bob).
+    expect(csv).toContain("Date,Description,Amount,Paid By,Split,Captain Owner,Bob");
+    expect(csv).toContain("2026-06-20,Cab (corrected),50.00,Bob,equal,25.00,25.00");
+    expect(csv).toContain("TOTAL,,50.00,,,25.00,25.00");
+    // Settlements section: the live settlement, with names resolved.
+    expect(csv).toContain("--- SETTLEMENTS ---");
+    expect(csv).toContain("2026-06-21,Captain Owner,Bob,25.00");
   }, 30000);
 });
