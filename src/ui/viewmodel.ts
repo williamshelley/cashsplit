@@ -95,3 +95,25 @@ export function balanceSummary(group: Group): BalanceRow[] {
     .map((b) => ({ personId: b.personId, name: nameOf(group.people, b.personId), amount: b.amount }))
     .sort((a, b) => b.amount - a.amount);
 }
+
+export type LinkState = "you" | "linked" | "unlinked";
+
+/** How a person relates to the current account: you, linked to another account, or unlinked. */
+export function personLinkState(person: Person, currentUid: string | null): LinkState {
+  if (person.uid == null) return "unlinked";
+  if (person.uid === currentUid) return "you";
+  return "linked";
+}
+
+export interface LinkSummary {
+  linked: number;
+  total: number;
+}
+
+/** Count of people linked to an account vs. total people in the group. */
+export function linkSummary(group: Group): LinkSummary {
+  return {
+    linked: group.people.filter((p) => p.uid != null).length,
+    total: group.people.length,
+  };
+}
