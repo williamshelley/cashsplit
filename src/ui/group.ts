@@ -30,6 +30,11 @@ export interface GroupActions {
   updateExpense: (e: ExpenseInput) => Promise<void>;
   removeExpense: (expenseId: string) => Promise<void>;
   addSettlement: (s: Settlement) => Promise<void>;
+  removeSettlement: (settlementId: string) => Promise<void>;
+  /** Rename the group. */
+  renameGroup: (name: string) => Promise<void>;
+  /** Delete the group (owner only); the parent navigates away on success. */
+  deleteGroup: () => Promise<void>;
   onBack: () => void;
   onCopyLink: () => Promise<void> | void;
   /**
@@ -39,7 +44,7 @@ export interface GroupActions {
   onTabChange?: (tab: GroupTab) => void;
 }
 
-export type GroupTab = "expenses" | "people" | "settle" | "share";
+export type GroupTab = "expenses" | "people" | "settle" | "settings";
 type Tab = GroupTab;
 
 /** Render a full group with tabbed sections. */
@@ -62,7 +67,7 @@ export function renderGroup(
   if (tab === "expenses") renderExpensesTab(body, group, actions);
   else if (tab === "people") renderPeopleTab(body, group, actions);
   else if (tab === "settle") renderSettleTab(body, group, actions);
-  else renderShareTab(body, group, actions);
+  else renderSettingsTab(body, group, actions);
 
   mount(
     container,
@@ -85,7 +90,7 @@ export function renderGroup(
       tabBtn("expenses", "Expenses"),
       tabBtn("people", "People"),
       tabBtn("settle", "Settle up"),
-      tabBtn("share", "Share"),
+      tabBtn("settings", "Settings"),
     ]),
     body,
   );
@@ -178,7 +183,17 @@ function renderExpensesTab(body: HTMLElement, group: GroupDoc, actions: GroupAct
                   el("div", { class: "hint split-detail" }, detail),
                   el("div", { class: "row expense-actions" }, [
                     el("button", { class: "btn small", onClick: () => openForm(e) }, "Edit"),
-                    el("button", { class: "btn small danger", onClick: async () => { await actions.removeExpense(e.id); } }, "Delete"),
+                    el("button", {
+                      class: "btn small danger",
+                      onClick: () =>
+                        confirmModal({
+                          title: "Delete expense?",
+                          message: el("p", {}, ["Delete ", el("strong", {}, e.description), `? This removes ${formatMoney(e.amount)} from the group's books.`]),
+                          confirmLabel: "Delete",
+                          danger: true,
+                          onConfirm: () => actions.removeExpense(e.id),
+                        }),
+                    }, "Delete"),
                   ]),
                 ]),
               ]);
@@ -187,7 +202,7 @@ function renderExpensesTab(body: HTMLElement, group: GroupDoc, actions: GroupAct
 
   mount(
     body,
-    el("div", { class: "row" }, [
+    el("div", { class: "row expense-add-bar" }, [
       el("button", { class: "btn primary", onClick: () => { if (!formOpen) openForm(); } }, "+ Add expense"),
     ]),
     formHost,
@@ -295,7 +310,17 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
             el("div", { class: "person-actions" }, [
               // Let a member claim any person but the one they're already linked to.
               isMe ? null : el("button", { class: "btn small", onClick: () => confirmLink(p) }, "This is me"),
-              el("button", { class: "btn small danger", onClick: async () => { await actions.removePerson(p.id); } }, "Remove"),
+              el("button", {
+                class: "btn small danger",
+                onClick: () =>
+                  confirmModal({
+                    title: "Remove person?",
+                    message: el("p", {}, ["Remove ", el("strong", {}, p.name), " from this group? Their expenses and any debts to or from them will no longer be counted."]),
+                    confirmLabel: "Remove",
+                    danger: true,
+                    onConfirm: () => actions.removePerson(p.id),
+                  }),
+              }, "Remove"),
             ]),
           ]),
         ]);
@@ -325,7 +350,29 @@ function renderPeopleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
         ]),
       ]),
     ]),
+    inviteCard(actions),
   );
+}
+
+/** The "Invite people" card: a read-only share link + copy button. */
+function inviteCard(actions: GroupActions): HTMLElement {
+  const link = window.location.href;
+  const status = el("span", { class: "ok" });
+  return el("div", { class: "card stack" }, [
+    el("h3", {}, "Invite people"),
+    el("p", { class: "hint" }, "Anyone you send this link to can sign in and join this group. Changes sync live for everyone."),
+    el("input", { type: "text", value: link, readonly: true }),
+    el("div", { class: "row" }, [
+      el("button", {
+        class: "btn primary",
+        onClick: async () => {
+          try { await actions.onCopyLink(); status.textContent = "Link copied!"; }
+          catch { status.textContent = "Copy this link manually."; }
+        },
+      }, "Copy invite link"),
+      status,
+    ]),
+  ]);
 }
 
 function renderSettleTab(body: HTMLElement, group: GroupDoc, actions: GroupActions) {
@@ -339,28 +386,52 @@ function renderSettleTab(body: HTMLElement, group: GroupDoc, actions: GroupActio
         date: new Date().toISOString().slice(0, 10),
       });
     },
+    onUnmarkPaid: async (row) => {
+      await actions.removeSettlement(row.id);
+    },
   });
 }
 
-function renderShareTab(body: HTMLElement, _group: GroupDoc, actions: GroupActions) {
-  const link = window.location.href;
-  const status = el("span", { class: "ok" });
-  mount(
-    body,
-    el("div", { class: "card stack" }, [
-      el("h3", {}, "Invite people"),
-      el("p", { class: "hint" }, "Anyone you send this link to can sign in and join this group. Changes sync live for everyone."),
-      el("input", { type: "text", value: link, readonly: true }),
-      el("div", { class: "row" }, [
-        el("button", {
-          class: "btn primary",
-          onClick: async () => {
-            try { await actions.onCopyLink(); status.textContent = "Link copied!"; }
-            catch { status.textContent = "Copy this link manually."; }
-          },
-        }, "Copy invite link"),
-        status,
-      ]),
+function renderSettingsTab(body: HTMLElement, group: GroupDoc, actions: GroupActions) {
+  const nameCard = el("div", { class: "card stack" }, [
+    el("h3", {}, "Group name"),
+    el("div", { class: "row" }, [
+      el("strong", {}, group.name),
+      el("span", { class: "spacer" }),
+      el("button", {
+        class: "btn small",
+        onClick: () =>
+          promptModal({
+            title: "Rename group",
+            initialValue: group.name,
+            confirmLabel: "Save",
+            onSubmit: (name) => actions.renameGroup(name),
+          }),
+      }, "Rename"),
     ]),
-  );
+  ]);
+
+  // Only the owner can delete the group (enforced by Firestore rules too).
+  const isOwner = group.ownerUid === actions.currentUid;
+  const dangerCard = isOwner
+    ? el("div", { class: "card stack" }, [
+        el("h3", {}, "Danger zone"),
+        el("p", { class: "hint" }, "Deleting this group removes it for everyone, along with all its people, expenses and payments."),
+        el("div", { class: "row" }, [
+          el("button", {
+            class: "btn danger",
+            onClick: () =>
+              confirmModal({
+                title: "Delete group?",
+                message: el("p", {}, ["Permanently delete ", el("strong", {}, group.name), " for everyone? This can't be undone."]),
+                confirmLabel: "Delete",
+                danger: true,
+                onConfirm: () => actions.deleteGroup(),
+              }),
+          }, "Delete group"),
+        ]),
+      ])
+    : null;
+
+  mount(body, nameCard, dangerCard);
 }

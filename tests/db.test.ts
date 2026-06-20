@@ -19,6 +19,7 @@ import {
   subscribeGroup,
   subscribeMyGroups,
   renameGroup,
+  deleteGroup,
 } from "../src/db";
 import type { ExpenseInput, GroupDoc, Person, Settlement } from "../src/types";
 
@@ -279,6 +280,15 @@ describe("renameGroup", () => {
     const id = await createGroup(db, { name: "Old", ownerUid: "uA", ownerName: "A" });
     await renameGroup(db, id, "New");
     expect((await read(id)).name).toBe("New");
+  });
+});
+
+describe("deleteGroup", () => {
+  it("removes the group document", async () => {
+    const id = await createGroup(db, { name: "Doomed", ownerUid: "uA", ownerName: "A" });
+    expect((await getDoc(doc(db, "groups", id))).exists()).toBe(true);
+    await deleteGroup(db, id);
+    expect((await getDoc(doc(db, "groups", id))).exists()).toBe(false);
   });
 });
 

@@ -3,6 +3,7 @@ import {
   authScreen,
   splitPreview,
   settleRows,
+  settlementRows,
   balanceSummary,
   formatMoney,
   personLinkState,
@@ -126,6 +127,28 @@ describe("settleRows", () => {
     const rows = settleRows(g);
     const row = rows.find((r) => r.toId === "b")!;
     expect(row.venmoHref).toBeNull();
+  });
+});
+
+describe("settlementRows", () => {
+  it("resolves recorded settlements to named rows, most recent first", () => {
+    const g = group({
+      settlements: [
+        { id: "s1", from: "b", to: "a", amount: 10, date: "2026-01-01" },
+        { id: "s2", from: "c", to: "a", amount: 5, date: "2026-01-03" },
+      ],
+    });
+    const rows = settlementRows(g);
+    expect(rows.map((r) => r.id)).toEqual(["s2", "s1"]); // newest first by date
+    const s1 = rows.find((r) => r.id === "s1")!;
+    expect(s1.fromName).toBe("Bob");
+    expect(s1.toName).toBe("Alice");
+    expect(s1.toId).toBe("a");
+    expect(s1.amount).toBe(10);
+  });
+
+  it("returns an empty list when there are no settlements", () => {
+    expect(settlementRows(group())).toEqual([]);
   });
 });
 

@@ -129,6 +129,29 @@ export function settleRows(group: Group): SettleRow[] {
   });
 }
 
+export interface SettlementRow {
+  id: string;
+  fromId: string;
+  toId: string;
+  fromName: string;
+  toName: string;
+  amount: number;
+}
+
+/** Recorded payments (settlements) with resolved names, most recent first. */
+export function settlementRows(group: Group): SettlementRow[] {
+  return [...group.settlements]
+    .sort((a, b) => (a.date < b.date ? 1 : -1))
+    .map((s) => ({
+      id: s.id,
+      fromId: s.from,
+      toId: s.to,
+      fromName: nameOf(group.people, s.from),
+      toName: nameOf(group.people, s.to),
+      amount: s.amount,
+    }));
+}
+
 export interface BalanceRow {
   personId: string;
   name: string;

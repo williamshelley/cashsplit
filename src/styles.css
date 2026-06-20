@@ -282,6 +282,8 @@ ul { list-style: none; padding: 0; margin: 0; }
 .expense-amt { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .split-detail { color: var(--faint); }
 .expense-actions { margin-top: 8px; }
+/* Space between the "+ Add expense" button and the expenses list below it. */
+.expense-add-bar { margin-bottom: 16px; }
 
 /* People rows: avatar + main + side. */
 .list-item.person { gap: 12px; }
@@ -297,8 +299,13 @@ ul { list-style: none; padding: 0; margin: 0; }
 .balances .owed .bal-amt { color: #2fa37a; font-weight: 600; }
 .balances .owes .bal-amt { color: var(--danger); font-weight: 600; }
 .settle-desc { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.settle-arrow { color: var(--muted); }
-.settle-names { color: var(--muted); font-size: 0.9rem; }
+.settle-names { color: var(--text); font-size: 0.95rem; font-weight: 600; }
+/* Mark-paid / undo checkbox: a chip-style label that overrides the uppercase
+   default label styling. */
+.settle-check { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 7px 13px; border: 1px solid var(--border); border-radius: var(--pill); text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 0.85rem; color: var(--text); cursor: pointer; }
+.settle-check input { width: auto; margin: 0; accent-color: var(--brand); }
+/* Recorded payments read as settled (muted), distinct from open debts. */
+.payment-row .settle-names { color: var(--muted); font-weight: 600; }
 
 /* Segmented control (split method) + participant toggle chips. */
 .segmented { display: flex; gap: 6px; flex-wrap: wrap; }

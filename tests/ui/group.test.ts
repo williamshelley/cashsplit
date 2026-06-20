@@ -57,6 +57,9 @@ function actions(over: Partial<GroupActions> = {}): GroupActions {
     updateExpense: vi.fn(),
     removeExpense: vi.fn(),
     addSettlement: vi.fn(),
+    removeSettlement: vi.fn(),
+    renameGroup: vi.fn(),
+    deleteGroup: vi.fn(),
     onBack: vi.fn(),
     onCopyLink: vi.fn(),
     ...over,
@@ -163,6 +166,81 @@ describe("Expenses tab: editing", () => {
       ) as HTMLElement;
     expect(rowFor("Alpha").textContent).toMatch(/edited/i);
     expect(rowFor("Beta").textContent).not.toMatch(/edited/i);
+  });
+});
+
+describe("Expenses tab: layout", () => {
+  it("wraps the add-expense button in a spacing bar so it isn't flush with the list", () => {
+    const container = document.createElement("div");
+    renderGroup(container, group(), actions(), "expenses");
+
+    const addBtn = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent === "+ Add expense",
+    )!;
+    expect(addBtn.closest(".expense-add-bar")).not.toBeNull();
+  });
+});
+
+describe("Expenses tab: deleting requires confirmation", () => {
+  function tacosGroup() {
+    return { ...group(), expenses: [expense({ id: "e1", description: "Tacos" })] };
+  }
+  function tacosRow(container: HTMLElement) {
+    return Array.from(container.querySelectorAll(".list-item")).find((r) =>
+      r.textContent?.includes("Tacos"),
+    ) as HTMLElement;
+  }
+
+  it("deletes the expense only after the confirm modal is accepted", () => {
+    const removeExpense = vi.fn();
+    const container = document.createElement("div");
+    renderGroup(container, tacosGroup(), actions({ removeExpense }), "expenses");
+
+    rowButton(tacosRow(container), "Delete")!.click();
+    expect(document.body.querySelector(".modal-overlay")).not.toBeNull();
+    expect(removeExpense).not.toHaveBeenCalled(); // not until confirmed
+
+    modalButton("Delete")!.click();
+    expect(removeExpense).toHaveBeenCalledWith("e1");
+  });
+
+  it("does not delete the expense when the confirm modal is cancelled", () => {
+    const removeExpense = vi.fn();
+    const container = document.createElement("div");
+    renderGroup(container, tacosGroup(), actions({ removeExpense }), "expenses");
+
+    rowButton(tacosRow(container), "Delete")!.click();
+    modalButton("Cancel")!.click();
+
+    expect(removeExpense).not.toHaveBeenCalled();
+    expect(document.body.querySelector(".modal-overlay")).toBeNull();
+  });
+});
+
+describe("People tab: removing a person requires confirmation", () => {
+  it("removes the person only after the confirm modal is accepted", () => {
+    const removePerson = vi.fn();
+    const container = document.createElement("div");
+    renderGroup(container, multiGroup(), actions({ currentUid: "uA", removePerson }), "people");
+
+    rowButton(personRow(container, "Bob"), "Remove")!.click();
+    expect(document.body.querySelector(".modal-overlay")).not.toBeNull();
+    expect(removePerson).not.toHaveBeenCalled(); // not until confirmed
+
+    modalButton("Remove")!.click();
+    expect(removePerson).toHaveBeenCalledWith("b");
+  });
+
+  it("does not remove the person when the confirm modal is cancelled", () => {
+    const removePerson = vi.fn();
+    const container = document.createElement("div");
+    renderGroup(container, multiGroup(), actions({ currentUid: "uA", removePerson }), "people");
+
+    rowButton(personRow(container, "Bob"), "Remove")!.click();
+    modalButton("Cancel")!.click();
+
+    expect(removePerson).not.toHaveBeenCalled();
+    expect(document.body.querySelector(".modal-overlay")).toBeNull();
   });
 });
 
@@ -350,5 +428,80 @@ describe("People tab: add-person form no longer sets Venmo", () => {
 
     expect(addPerson).toHaveBeenCalledTimes(1);
     expect(addPerson.mock.calls[0][0]).toMatchObject({ name: "Dave", venmo: null, uid: null });
+  });
+});
+
+function tabLabels(container: HTMLElement): (string | null)[] {
+  return Array.from(container.querySelectorAll(".tabs button")).map((b) => b.textContent);
+}
+
+function findButton(container: HTMLElement, text: string): HTMLButtonElement | undefined {
+  return Array.from(container.querySelectorAll("button")).find((b) => b.textContent === text) as
+    | HTMLButtonElement
+    | undefined;
+}
+
+describe("group tabs: Share replaced by Settings", () => {
+  it("offers a Settings tab and no Share tab", () => {
+    const container = document.createElement("div");
+    renderGroup(container, group(), actions(), "expenses");
+    expect(tabLabels(container)).toContain("Settings");
+    expect(tabLabels(container)).not.toContain("Share");
+  });
+});
+
+describe("People tab: invite section (moved from Share)", () => {
+  it("shows an invite section with a copy button that calls onCopyLink", async () => {
+    const onCopyLink = vi.fn();
+    const container = document.createElement("div");
+    renderGroup(container, group(), actions({ onCopyLink }), "people");
+
+    expect(container.textContent).toMatch(/invite/i);
+    const copyBtn = Array.from(container.querySelectorAll("button")).find((b) =>
+      /copy invite/i.test(b.textContent ?? ""),
+    ) as HTMLButtonElement;
+    expect(copyBtn).toBeTruthy();
+    copyBtn.click();
+    await Promise.resolve();
+    expect(onCopyLink).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Settings tab", () => {
+  it("renames the group via a prompt prefilled with the current name", async () => {
+    const renameGroup = vi.fn();
+    const container = document.createElement("div");
+    renderGroup(container, group(), actions({ renameGroup }), "settings");
+
+    findButton(container, "Rename")!.click();
+    const input = document.body.querySelector(".modal-overlay input") as HTMLInputElement;
+    expect(input.value).toBe("Tahoe Ski Trip");
+
+    input.value = "  Tahoe 2026  ";
+    modalButton("Save")!.click();
+    await Promise.resolve();
+
+    expect(renameGroup).toHaveBeenCalledWith("Tahoe 2026"); // trimmed
+  });
+
+  it("lets the owner delete the group only after confirming", () => {
+    const deleteGroup = vi.fn();
+    const container = document.createElement("div");
+    // Default currentUid uA is the group owner.
+    renderGroup(container, group(), actions({ deleteGroup }), "settings");
+
+    findButton(container, "Delete group")!.click();
+    expect(document.body.querySelector(".modal-overlay")).not.toBeNull();
+    expect(deleteGroup).not.toHaveBeenCalled();
+
+    modalButton("Delete")!.click();
+    expect(deleteGroup).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the delete control from non-owners", () => {
+    const container = document.createElement("div");
+    // uX is a member but not the owner (ownerUid is uA).
+    renderGroup(container, multiGroup(), actions({ currentUid: "uX" }), "settings");
+    expect(findButton(container, "Delete group")).toBeUndefined();
   });
 });
