@@ -5,14 +5,25 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
+  type ActionCodeSettings,
   type Auth,
   type User,
 } from "firebase/auth";
 
-/** Create an account and immediately send a verification email. */
-export async function signUp(auth: Auth, email: string, password: string): Promise<User> {
+/**
+ * Create an account and immediately send a verification email.
+ *
+ * `verifySettings` (optional) sets the continue URL Firebase sends the user back
+ * to after they verify. Omitted in tests, where there's no `window` to derive it.
+ */
+export async function signUp(
+  auth: Auth,
+  email: string,
+  password: string,
+  verifySettings?: ActionCodeSettings,
+): Promise<User> {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
-  await sendEmailVerification(cred.user);
+  await sendEmailVerification(cred.user, verifySettings);
   return cred.user;
 }
 
@@ -30,9 +41,12 @@ export async function resetPassword(auth: Auth, email: string): Promise<void> {
 }
 
 /** Re-send the verification email to the currently signed-in user. */
-export async function resendVerification(auth: Auth): Promise<void> {
+export async function resendVerification(
+  auth: Auth,
+  verifySettings?: ActionCodeSettings,
+): Promise<void> {
   if (!auth.currentUser) throw new Error("Not signed in.");
-  await sendEmailVerification(auth.currentUser);
+  await sendEmailVerification(auth.currentUser, verifySettings);
 }
 
 /** Subscribe to auth state changes. */
