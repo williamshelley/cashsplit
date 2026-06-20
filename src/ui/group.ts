@@ -17,9 +17,15 @@ export interface GroupActions {
   addSettlement: (s: Settlement) => Promise<void>;
   onBack: () => void;
   onCopyLink: () => Promise<void> | void;
+  /**
+   * Notify the parent that the active tab changed, so it can preserve the tab
+   * across live re-renders. If omitted, tab switching is handled internally.
+   */
+  onTabChange?: (tab: GroupTab) => void;
 }
 
-type Tab = "expenses" | "people" | "settle" | "share";
+export type GroupTab = "expenses" | "people" | "settle" | "share";
+type Tab = GroupTab;
 
 /** Render a full group with tabbed sections. */
 export function renderGroup(
@@ -30,7 +36,10 @@ export function renderGroup(
 ): void {
   const body = el("div", {});
 
-  const setTab = (t: Tab) => renderGroup(container, group, actions, t);
+  const setTab = (t: Tab) => {
+    if (actions.onTabChange) actions.onTabChange(t);
+    else renderGroup(container, group, actions, t);
+  };
 
   const tabBtn = (t: Tab, label: string) =>
     el("button", { class: `btn small ${t === tab ? "active" : ""}`, onClick: () => setTab(t) }, label);

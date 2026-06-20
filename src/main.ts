@@ -6,7 +6,7 @@ import { authScreen } from "./ui/viewmodel";
 import { el, mount } from "./ui/dom";
 import { renderAuth, renderVerify } from "./ui/auth";
 import { renderHome } from "./ui/home";
-import { renderGroup } from "./ui/group";
+import { renderGroup, type GroupActions, type GroupTab } from "./ui/group";
 import * as dbApi from "./db";
 import * as authApi from "./auth";
 
@@ -63,7 +63,14 @@ async function bootstrap() {
     if (screen === "verify") {
       renderVerify(appEl, currentUser?.email ?? "your email", {
         resend: async () => { await authApi.resendVerification(auth); },
-        reload: async () => { await currentUser?.reload(); currentUser = auth.currentUser; route(); },
+        reload: async () => {
+          await currentUser?.reload();
+          // Force a fresh ID token so the email_verified claim is updated for
+          // Firestore rules (reload alone reuses the cached, still-false token).
+          await auth.currentUser?.getIdToken(true);
+          currentUser = auth.currentUser;
+          route();
+        },
         logOut: async () => { await authApi.logOut(auth); },
       });
       return;
@@ -79,8 +86,28 @@ async function bootstrap() {
     }
   }
 
+  function renderSubscriptionError(error: Error) {
+    mount(
+      appEl,
+      el("div", { class: "topbar" }, [el("div", { class: "brand" }, [el("span", {}, "Cash"), "Split"])]),
+      el("div", { class: "card stack" }, [
+        el("h3", {}, "Couldn't load your data"),
+        el("p", { class: "hint" }, "This can happen for a moment right after verifying your email. Refreshing your session usually fixes it."),
+        el("p", { class: "error" }, error.message),
+        el("div", { class: "row" }, [
+          el("button", {
+            class: "btn primary",
+            onClick: async () => { await auth.currentUser?.getIdToken(true); route(); },
+          }, "Refresh session"),
+          el("button", { class: "btn", onClick: async () => { await authApi.logOut(auth); } }, "Log out"),
+        ]),
+      ]),
+    );
+  }
+
   function openHome() {
     const uid = currentUser!.uid;
+    mount(appEl, el("div", { class: "card empty" }, "Loading your groups…"));
     routeUnsub = dbApi.subscribeMyGroups(db, uid, (groups: GroupDoc[]) => {
       renderHome(appEl, groups, {
         userEmail: currentUser?.email ?? "",
@@ -95,7 +122,7 @@ async function bootstrap() {
         },
         onLogout: async () => { await authApi.logOut(auth); },
       });
-    });
+    }, renderSubscriptionError);
   }
 
   async function openGroup(id: string) {
@@ -113,23 +140,34 @@ async function bootstrap() {
       );
       return;
     }
+    mount(appEl, el("div", { class: "card empty" }, "Loading group…"));
+
+    // Keep the active tab in parent state so live snapshot re-renders don't
+    // bounce the user back to the default "Expenses" tab.
+    let tab: GroupTab = "expenses";
+    let latest: GroupDoc | null = null;
+    const actions: GroupActions = {
+      currentUid: uid,
+      addPerson: (p) => dbApi.addPerson(db, id, p),
+      updatePerson: (p) => dbApi.updatePerson(db, id, p),
+      removePerson: (pid) => dbApi.removePerson(db, id, pid),
+      addExpense: (e) => dbApi.addExpense(db, id, e),
+      removeExpense: (eid) => dbApi.removeExpense(db, id, eid),
+      addSettlement: (s) => dbApi.addSettlement(db, id, s),
+      onBack: () => navigate("#/"),
+      onCopyLink: () => navigator.clipboard.writeText(window.location.href),
+      onTabChange: (t) => { tab = t; draw(); },
+    };
+    const draw = () => { if (latest) renderGroup(appEl, latest, actions, tab); };
+
     routeUnsub = dbApi.subscribeGroup(db, id, (group) => {
       if (!group) {
         mount(appEl, el("div", { class: "card empty" }, "Group not found."));
         return;
       }
-      renderGroup(appEl, group, {
-        currentUid: uid,
-        addPerson: (p) => dbApi.addPerson(db, id, p),
-        updatePerson: (p) => dbApi.updatePerson(db, id, p),
-        removePerson: (pid) => dbApi.removePerson(db, id, pid),
-        addExpense: (e) => dbApi.addExpense(db, id, e),
-        removeExpense: (eid) => dbApi.removeExpense(db, id, eid),
-        addSettlement: (s) => dbApi.addSettlement(db, id, s),
-        onBack: () => navigate("#/"),
-        onCopyLink: () => navigator.clipboard.writeText(window.location.href),
-      });
-    });
+      latest = group;
+      draw();
+    }, renderSubscriptionError);
   }
 
   authApi.watchAuth(auth, (user) => {

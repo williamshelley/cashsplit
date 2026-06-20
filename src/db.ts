@@ -123,14 +123,19 @@ export function subscribeGroup(
   db: Firestore,
   id: string,
   onChange: (group: GroupDoc | null) => void,
+  onError?: (error: Error) => void,
 ): Unsubscribe {
-  return onSnapshot(doc(db, GROUPS, id), (snap) => {
-    if (!snap.exists()) {
-      onChange(null);
-      return;
-    }
-    onChange({ id: snap.id, ...(snap.data() as Group) });
-  });
+  return onSnapshot(
+    doc(db, GROUPS, id),
+    (snap) => {
+      if (!snap.exists()) {
+        onChange(null);
+        return;
+      }
+      onChange({ id: snap.id, ...(snap.data() as Group) });
+    },
+    (error) => onError?.(error),
+  );
 }
 
 /** Live-subscribe to all groups the given uid is a member of. */
@@ -138,10 +143,15 @@ export function subscribeMyGroups(
   db: Firestore,
   uid: string,
   onChange: (groups: GroupDoc[]) => void,
+  onError?: (error: Error) => void,
 ): Unsubscribe {
   const q = query(collection(db, GROUPS), where("memberUids", "array-contains", uid));
-  return onSnapshot(q, (snap) => {
-    const groups = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Group) }));
-    onChange(groups);
-  });
+  return onSnapshot(
+    q,
+    (snap) => {
+      const groups = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Group) }));
+      onChange(groups);
+    },
+    (error) => onError?.(error),
+  );
 }

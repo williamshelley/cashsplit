@@ -7,3 +7,7 @@ firestore-debug.log
 ui-debug.log
 .firebase
 coverage
+
+# Local browser-test artifacts (Playwright MCP)
+.playwright-mcp/
+*.png
