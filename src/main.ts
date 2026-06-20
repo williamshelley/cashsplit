@@ -37,12 +37,48 @@ async function bootstrap() {
   // notice (above) without initializing against a placeholder config.
   const { auth, db } = await import("./firebase");
 
+  // Where Firebase sends the user after they click the verification link: back
+  // to the deployed site root. origin handles prod/dev hosts; BASE_URL is
+  // "/cashsplit/" in prod and "/" in dev. handleCodeInApp:false keeps Firebase's
+  // hosted verify handler (we don't process the oobCode ourselves).
+  const verifySettings = {
+    url: window.location.origin + import.meta.env.BASE_URL,
+    handleCodeInApp: false,
+  };
+
   let routeUnsub: Unsubscribe | null = null;
+  let verifyTeardown: (() => void) | null = null;
   let currentUser: User | null = null;
+  let refreshing = false;
 
   const clearRoute = () => {
     if (routeUnsub) { routeUnsub(); routeUnsub = null; }
+    if (verifyTeardown) { verifyTeardown(); verifyTeardown = null; }
   };
+
+  // Re-check verification with the server and advance into the app if it flipped.
+  // Used by the manual "I've verified" button and auto-triggered when the user
+  // returns to the tab after verifying. Loop-safe: guarded against re-entrancy,
+  // missing user, and the already-verified case so repeated focus events are cheap.
+  async function refreshVerification() {
+    if (refreshing || !auth.currentUser || auth.currentUser.emailVerified) return;
+    refreshing = true;
+    try {
+      await auth.currentUser.reload();
+      if (auth.currentUser.emailVerified) {
+        // Force a fresh ID token so the email_verified claim is updated for
+        // Firestore rules (reload alone reuses the cached, still-false token).
+        await auth.currentUser.getIdToken(true);
+      }
+      currentUser = auth.currentUser;
+      route();
+    } catch {
+      // Transient (e.g. network) — leave the user on the verify gate; the manual
+      // button and the next focus event remain as retries.
+    } finally {
+      refreshing = false;
+    }
+  }
 
   const navigate = (hash: string) => {
     if (window.location.hash !== hash) window.location.hash = hash;
@@ -54,7 +90,7 @@ async function bootstrap() {
     const screen = authScreen(currentUser);
     if (screen === "auth") {
       renderAuth(appEl, {
-        signUp: async (email, password) => { await authApi.signUp(auth, email, password); },
+        signUp: async (email, password) => { await authApi.signUp(auth, email, password, verifySettings); },
         logIn: async (email, password) => { await authApi.logIn(auth, email, password); },
         resetPassword: async (email) => { await authApi.resetPassword(auth, email); },
       });
@@ -62,17 +98,24 @@ async function bootstrap() {
     }
     if (screen === "verify") {
       renderVerify(appEl, currentUser?.email ?? "your email", {
-        resend: async () => { await authApi.resendVerification(auth); },
-        reload: async () => {
-          await currentUser?.reload();
-          // Force a fresh ID token so the email_verified claim is updated for
-          // Firestore rules (reload alone reuses the cached, still-false token).
-          await auth.currentUser?.getIdToken(true);
-          currentUser = auth.currentUser;
-          route();
-        },
+        resend: async () => { await authApi.resendVerification(auth, verifySettings); },
+        reload: async () => { await refreshVerification(); },
         logOut: async () => { await authApi.logOut(auth); },
       });
+
+      // Auto-detect verification when the user returns to this tab/window after
+      // clicking the email link. Listeners are torn down on the next route() via
+      // clearRoute(), so they live only while the verify gate is shown.
+      const onVisible = () => { if (document.visibilityState === "visible") void refreshVerification(); };
+      const onFocus = () => { void refreshVerification(); };
+      document.addEventListener("visibilitychange", onVisible);
+      window.addEventListener("focus", onFocus);
+      verifyTeardown = () => {
+        document.removeEventListener("visibilitychange", onVisible);
+        window.removeEventListener("focus", onFocus);
+      };
+      // Attempt once on mount (covers verifying in another tab while this one waits).
+      void refreshVerification();
       return;
     }
 
